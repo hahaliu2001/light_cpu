@@ -9,9 +9,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void main()
-{
-	printf("hello \n");
+#include "cpu_external.h"
 
-	return;
+int main()
+{
+	printf("enter main \n");
+
+
+	return 0;
 }
