@@ -7,7 +7,8 @@ include tools.mk
 ifneq ($(TYPE), test)
 default: clean all
 else
-default: clean test
+# default: clean test
+default: test
 include test.mk
 endif
 

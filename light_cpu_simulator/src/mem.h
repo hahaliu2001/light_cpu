@@ -24,4 +24,10 @@ void write_mem(unsigned char *Mem, int MemAddr, unsigned char *WriteMemData);
 
 void write_mem_from_string(unsigned char *Mem, char *DataString);
 
+void write_mem_from_int(unsigned char *Mem, int MemAddr, unsigned int WriteMemData);
+
+unsigned int read_4_bytes_from_mem(unsigned char *Mem, int MemAddr);
+unsigned short read_2_bytes_from_mem(unsigned char *Mem, int MemAddr);
+unsigned char read_1_bytes_from_mem(unsigned char *Mem, int MemAddr);
+
 #endif /* MEM_H_ */

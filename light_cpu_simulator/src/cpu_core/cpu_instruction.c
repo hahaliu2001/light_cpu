@@ -57,14 +57,14 @@ unsigned int Format1_SUB_EX_stage	(void)
     unsigned int dLow32,dHigh32;
 
     s1 = (unsigned long long int)pCpu->Src1;
-    s2 = (unsigned long long int)pCpu->Src2;
+    s2 = (unsigned long long int)(0 - pCpu->Src2);
     if (pCpu->InstFlag.reg.A) //SBC
     {
-        d = s1 - s2 - (unsigned long long int)GET_SR_FLAG_C(pCpu->CpuCore.SRCh) + 1;
+        d = s1 + s2 + (unsigned long long int)GET_SR_FLAG_C(pCpu->CpuCore.SRCh) - 1;
     }
     else
     {
-        d = s1 - s2;
+        d = s1 + s2;
     }
     dLow32 = (unsigned int)d;
     dHigh32 = (unsigned int)(d>>32);
@@ -91,20 +91,11 @@ unsigned int Format1_SUB_WB_stage	(void){ return 0;}
 
 unsigned int Format1_MPY_EX_stage	(void)
 {
-    int i32s;
     CPU *pCpu= get_cpu();
 
-    if (pCpu->InstFlag.reg.A) //signed multply
-    {
-       i32s = (int)pCpu->Src1 *  (int)pCpu->Src2;
-       *pCpu->dst = (unsigned int)i32s;
-    }
-    else
-    {
-        *pCpu->dst = pCpu->Src1 *  pCpu->Src2;
-    }
+    *pCpu->dst = pCpu->Src1 *  pCpu->Src2;
 
-    //update SR falg bit
+    //update SR flag bit
     SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(*pCpu->dst==0));
     SET_SR_FLAG_N(pCpu->CpuCore.SRCh,(*pCpu->dst >> 31) & 1);
 
@@ -132,12 +123,13 @@ unsigned int Format1_MOV_WB_stage	(void){ return 0;}
 unsigned int Format1_CMP_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
-	unsigned long long int s1,s2,d;
+    unsigned long long int s1,s2,d;
     unsigned int dLow32,dHigh32;
 
+
     s1 = (unsigned long long int)pCpu->Src1;
-    s2 = (unsigned long long int)pCpu->Src2;
-    d = s1 - s2;
+    s2 = (unsigned long long int)(0 - pCpu->Src2);
+    d = s1 + s2;
 
     dLow32 = (unsigned int)d;
     dHigh32 = (unsigned int)(d>>32);
@@ -177,7 +169,7 @@ unsigned int Format1_SHIFT_EX_stage	(void)
         dHigh32 = (unsigned int)(d>>32);
         *pCpu->dst = dLow32;
         //set flag
-        SET_SR_FLAG_C(pCpu->CpuCore.SRCh,(dHigh32 & 1));
+        SET_SR_FLAG_C(pCpu->CpuCore.SRCh,(dHigh32 != 0));
         SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(0 == dLow32));
     }
     else  //for right shift
@@ -386,14 +378,30 @@ unsigned int Format1_ST_MEM_stage	(void)
     unsigned int u32Value = *pCpu->dst;
     unsigned int u32Addr = pCpu->Src1;
     unsigned char c0,c1,c2,c3;
-    c0 = (unsigned char)(u32Value >> 24);
-    c1 = (unsigned char)(u32Value >> 16);
-    c2 = (unsigned char)(u32Value >> 8);
-    c3 = (unsigned char)(u32Value >> 0);
-    pCpu->DataMemBase[u32Addr+0] = c0;
-    pCpu->DataMemBase[u32Addr+1] = c1;
-    pCpu->DataMemBase[u32Addr+2] = c2;
-    pCpu->DataMemBase[u32Addr+3] = c3;
+    unsigned int RdSize = pCpu->InstFlag.reg.A*2 + pCpu->InstFlag.reg.B;
+
+    switch (RdSize)
+    {
+    case 0: //write one LSB byte
+        pCpu->DataMemBase[u32Addr] = (unsigned char)(u32Value >> 0);
+        break;
+    case 1: //write two LSB bytes
+        pCpu->DataMemBase[u32Addr] = (unsigned char)(u32Value >> 8);
+        pCpu->DataMemBase[u32Addr + 1] = (unsigned char)(u32Value >> 0);
+        break;
+    case 2: //write four bytes
+        c0 = (unsigned char)(u32Value >> 24); 
+        c1 = (unsigned char)(u32Value >> 16);
+        c2 = (unsigned char)(u32Value >> 8);
+        c3 = (unsigned char)(u32Value >> 0);
+        pCpu->DataMemBase[u32Addr+0] = c0;
+        pCpu->DataMemBase[u32Addr+1] = c1;
+        pCpu->DataMemBase[u32Addr+2] = c2;
+        pCpu->DataMemBase[u32Addr+3] = c3;
+        break;
+    default:
+        return 1;
+    }
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -562,7 +570,9 @@ unsigned int Format3_RJMP_EX_stage	        (void)
     CPU *pCpu= get_cpu();
     int i32Value = (int)(pCpu->Src1);
     i32Value = (i32Value << 8) >> 8;
-    pCpu->Src1 = i32Value + (pCpu->CpuCore.R[31] >> 2);
+    //RJMP shall jump to current location + i32Value, while R[31] point to next instruction location, 
+    // so "- 1" is needed
+    pCpu->Src1 = i32Value + (pCpu->CpuCore.R[31] >> 2) - 1; 
     return Format3_AJMP_EX_stage();
 }
 unsigned int Format3_RJMP_MEM_stage	        (void){ return 0;}
@@ -586,7 +596,9 @@ unsigned int Format4_RJMP_EX_stage	        (void)
     CPU *pCpu= get_cpu();
     int i32Value = (int)(pCpu->Src1);
     i32Value = (i32Value << 16) >> 14;
-    pCpu->Src1 = (unsigned int)((i32Value + *pCpu->dst + pCpu->CpuCore.R[31]) >> 2);
+    //RJMP shall jump to current location + i32Value, while R[31] point to next instruction location, 
+    // so "- 1" is needed
+    pCpu->Src1 = (unsigned int)((i32Value + *pCpu->dst + pCpu->CpuCore.R[31] - 1) >> 2);
     return Format3_AJMP_EX_stage();
 }
 unsigned int Format4_RJMP_MEM_stage	        (void){ return 0;}
@@ -686,10 +698,10 @@ unsigned int Format2_ID_stage(void)
     pCpu->InstFlag.reg.D = GET_INST_TYPE1_2_4_FLAG_D(pCpu->InstCh);
     pCpu->InstFlag.reg.E = GET_INST_TYPE1_2_4_FLAG_E(pCpu->InstCh);
 
-    DstReg  = GET_INST_TYPE1_RD(pCpu->InstCh);
+    DstReg  = GET_INST_TYPE2_RD(pCpu->InstCh);
     pCpu->dst =    &pCpu->CpuCore.R[DstReg];
 
-    SrcReg  =   GET_INST_TYPE1_RB(pCpu->InstCh);
+    SrcReg  =   GET_INST_TYPE2_RB(pCpu->InstCh);
     pCpu->Src1 =   pCpu->CpuCore.R[SrcReg];
 
     pCpu->Src2  =   GET_INST_TYPE2_IMM(pCpu->InstCh);
@@ -727,7 +739,7 @@ unsigned int Format4_ID_stage(void)
     pCpu->InstFlag.reg.D = GET_INST_TYPE1_2_4_FLAG_D(pCpu->InstCh);
     pCpu->InstFlag.reg.E = GET_INST_TYPE1_2_4_FLAG_E(pCpu->InstCh);
 
-    DstReg  = GET_INST_TYPE1_RD(pCpu->InstCh);
+    DstReg  = GET_INST_TYPE4_RD(pCpu->InstCh);
     pCpu->dst =    &pCpu->CpuCore.R[DstReg];
 
     pCpu->Src1  =   GET_INST_TYPE4_IMM(pCpu->InstCh);
@@ -898,63 +910,42 @@ unsigned int InitInstTable(S_INSTRCTION_CONTEXT *Format1InstMenu,
 }
 
 /* for Jump instruction, check conditioanl flags*/
-/*
-Code	Suffix 	Flags 							Meaning
-0000	EQ 		Z set 							equal
-0001	NE		Z clear 						not equal
-0010	CS		C set 							unsigned higher or same
-0011	CC		C clear 						unsigned lower
-0100	MI		N set 							signed negative
-0101	PL		N clear 						signed positive or zero
-0110	VS		V set 							overflow
-0111	VC		V clear 						no overflow
-1000	HI		C set and Z clear 				unsigned higher
-1001	LS		C clear or Z set 				unsigned lower or same
-1010	GE		N equals V 						signed greater or equal
-1011	LT		N not equal to V 				signed less than
-1100	GT		Z clear AND (N equals V)		signed greater than
-1101	LE		Z set OR (N not equal to V)		signed less than or equal
-1110	AL		(ignored) 						always
-1111	RSV		not used
-
-*/
 static unsigned int CheckCondFlag(unsigned int Cond,unsigned int N,unsigned int Z,unsigned int C,unsigned int V)
 {
     switch (Cond)
     {
-    case 0: //EQ
+    case COND_EQ: //EQ
         return Z;
-    case 1: //NE
+    case COND_NE: //NE
         return (1 - Z);
-    case 2: //CS
+    case COND_CS: //CS
         return C;
-    case 3: //CC
+    case COND_CC: //CC
         return (1 - C);
-    case 4: //MI
+    case COND_MI: //MI
         return N;
-    case 5: //PL
+    case COND_PL: //PL
         return (1 - N);
-    case 6: //VS
+    case COND_VS: //VS
         return V;
-    case 7: //VC
+    case COND_VC: //VC
         return (1 - V);
-    case 8: //HI
+    case COND_HI: //HI
         return C && (1-Z);
-    case 9: //LS
-        return (1-C) && Z;
-    case 10: //GE
+    case COND_LS: //LS
+        return (1-C) || Z;
+    case COND_GE: //GE
         return (N == V);
-    case 11: //LT
+    case COND_LT: //LT
         return (N != V);
-    case 12: //GT
+    case COND_GT: //GT
         return (1 - Z) && ( N == V);
-    case 13: //LE
+    case COND_LE: //LE
         return Z || (N != V);
-    case 14: //AL
+    case COND_AL: //AL
         return 1;
-    case 15: //RSV
+    case COND_RSV: //RSV
         return 0;
-
     }
     return 0;
 }

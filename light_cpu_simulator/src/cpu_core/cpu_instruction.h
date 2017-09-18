@@ -59,6 +59,45 @@
 #define     T3_OP_AJMP      0b00
 #define     T3_OP_RJMP      0b01
 
+
+/*
+BCDE	Suffix 	Flags 							Meaning
+0000	EQ 		Z set 							equal
+0001	NE		Z clear 						not equal
+0010	CS		C set 							unsigned higher or same
+0011	CC		C clear 						unsigned lower
+0100	MI		N set 							signed negative
+0101	PL		N clear 						signed positive or zero
+0110	VS		V set 							overflow
+0111	VC		V clear 						no overflow
+1000	HI		C set and Z clear 				unsigned higher
+1001	LS		C clear or Z set 				unsigned lower or same
+1010	GE		N equals V 						signed greater or equal
+1011	LT		N not equal to V 				signed less than
+1100	GT		Z clear AND (N equals V)		signed greater than
+1101	LE		Z set OR (N not equal to V)		signed less than or equal
+1110	AL		(ignored) 						always
+1111	RSV		not used
+*/
+/*       conditional flags, BCDE below is CPU instruction flags  */
+/*     Suffix                 BCDE          Flags                           Meaning*/
+#define COND_EQ 			0b0000		//  Z set 							equal
+#define COND_NE				0b0001		//  Z clear 						not equal
+#define COND_CS				0b0010		//  C set 							unsigned higher or same
+#define COND_CC				0b0011		//  C clear 						unsigned lower
+#define COND_MI				0b0100		//  N set 							signed negative
+#define COND_PL				0b0101		//  N clear 						signed positive or zero
+#define COND_VS				0b0110		//  V set 							overflow
+#define COND_VC				0b0111		//  V clear 						no overflow
+#define COND_HI				0b1000		//  C set and Z clear 				unsigned higher
+#define COND_LS				0b1001		//  C clear or Z set 				unsigned lower or same
+#define COND_GE				0b1010		//  N equals V 						signed greater or equal
+#define COND_LT				0b1011		//  N not equal to V 				signed less than
+#define COND_GT				0b1100		//  Z clear AND (N equals V)		signed greater than
+#define COND_LE				0b1101		//  Z set OR (N not equal to V)		signed less than or equal
+#define COND_AL				0b1110		//  (ignored) 						always
+#define COND_RSV			0b1111		//  not used
+
 typedef struct
 {
     unsigned int        OpName  ;               //instruction name

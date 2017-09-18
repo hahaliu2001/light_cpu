@@ -4,19 +4,22 @@
 #include "unity.h"
 #include "unity_fixture.h"
 
-TEST_GROUP(inst_type1_add);
+#undef  TESTNAME
+#define TESTNAME inst_type1_add
 
-TEST_SETUP(inst_type1_add)
+SET_TEST_GROUP(TESTNAME);
+
+SET_TEST_SETUP(TESTNAME)
 {
   //This is run before EACH TEST
 }
 
-TEST_TEAR_DOWN(inst_type1_add)
+SET_TEST_DOWN(TESTNAME)
 {
 
 }
 
-TEST(inst_type1_add, test_type1_add_with_small_input)
+SET_TEST(TESTNAME, test_type1_add_with_small_input)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -70,7 +73,7 @@ TEST(inst_type1_add, test_type1_add_with_small_input)
 	}
 }
 
-TEST(inst_type1_add, should_set_Z_flag_when_result_equal_to_zero)
+SET_TEST(TESTNAME, should_set_Z_flag_when_result_equal_to_zero)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -124,7 +127,7 @@ TEST(inst_type1_add, should_set_Z_flag_when_result_equal_to_zero)
 	}
 }
 
-TEST(inst_type1_add, should_set_N_flag_when_result_is_negative)
+SET_TEST(TESTNAME, should_set_N_flag_when_result_is_negative)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -178,7 +181,7 @@ TEST(inst_type1_add, should_set_N_flag_when_result_is_negative)
 	}
 }
 
-TEST(inst_type1_add, should_set_C_flag_when_result_produce_carry)
+SET_TEST(TESTNAME, should_set_C_flag_when_result_produce_carry)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -232,7 +235,7 @@ TEST(inst_type1_add, should_set_C_flag_when_result_produce_carry)
 	}
 }
 
-TEST(inst_type1_add, should_set_V_flag_when_two_positive_input_and_result_is_negative)
+SET_TEST(TESTNAME, should_set_V_flag_when_two_positive_input_and_result_is_negative)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -269,7 +272,7 @@ TEST(inst_type1_add, should_set_V_flag_when_two_positive_input_and_result_is_neg
 	TEST_ASSERT_EQUAL((int)(Value * 2), (int)GET_CPU_REG(RD));
 }
 
-TEST(inst_type1_add, should_set_V_flag_when_two_negative_input_and_result_is_positive)
+SET_TEST(TESTNAME, should_set_V_flag_when_two_negative_input_and_result_is_positive)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -306,7 +309,7 @@ TEST(inst_type1_add, should_set_V_flag_when_two_negative_input_and_result_is_pos
 	TEST_ASSERT_EQUAL((int)(Value * 2), (int)GET_CPU_REG(RD));
 }
 
-TEST(inst_type1_add, test_addc_when_c_is_zero)
+SET_TEST(TESTNAME, test_addc_when_c_is_zero)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -342,7 +345,7 @@ TEST(inst_type1_add, test_addc_when_c_is_zero)
 	TEST_ASSERT_EQUAL((int)(Value * 2), (int)GET_CPU_REG(RD));
 }
 
-TEST(inst_type1_add, test_addc_when_c_is_one)
+SET_TEST(TESTNAME, test_addc_when_c_is_one)
 {
 	int InstSize, i,Value;
 	int RA, RB, RD;
@@ -378,19 +381,19 @@ TEST(inst_type1_add, test_addc_when_c_is_one)
 	TEST_ASSERT_EQUAL((int)(Value * 2 + 1), (int)GET_CPU_REG(RD));
 }
 
-TEST_GROUP_RUNNER(inst_type1_add)
+SET_TEST_GROUP_RUNNER(TESTNAME)
 {
-	printf("test instruction type 1 add \n");
+	printf("test instruction %s \n", GET_STR(TESTNAME));
 	//test type 1 add
-	RUN_TEST_CASE(inst_type1_add, test_type1_add_with_small_input);
-	RUN_TEST_CASE(inst_type1_add, should_set_Z_flag_when_result_equal_to_zero);
-	RUN_TEST_CASE(inst_type1_add, should_set_N_flag_when_result_is_negative);
-	RUN_TEST_CASE(inst_type1_add, should_set_C_flag_when_result_produce_carry);
-	RUN_TEST_CASE(inst_type1_add, should_set_V_flag_when_two_positive_input_and_result_is_negative);
-	RUN_TEST_CASE(inst_type1_add, should_set_V_flag_when_two_negative_input_and_result_is_positive);
+	SET_RUN_TEST_CASE(TESTNAME, test_type1_add_with_small_input);
+	SET_RUN_TEST_CASE(TESTNAME, should_set_Z_flag_when_result_equal_to_zero);
+	SET_RUN_TEST_CASE(TESTNAME, should_set_N_flag_when_result_is_negative);
+	SET_RUN_TEST_CASE(TESTNAME, should_set_C_flag_when_result_produce_carry);
+	SET_RUN_TEST_CASE(TESTNAME, should_set_V_flag_when_two_positive_input_and_result_is_negative);
+	SET_RUN_TEST_CASE(TESTNAME, should_set_V_flag_when_two_negative_input_and_result_is_positive);
 
 	//test type 1 addc
-	RUN_TEST_CASE(inst_type1_add, test_addc_when_c_is_zero);
-	RUN_TEST_CASE(inst_type1_add, test_addc_when_c_is_one);
+	SET_RUN_TEST_CASE(TESTNAME, test_addc_when_c_is_zero);
+	SET_RUN_TEST_CASE(TESTNAME, test_addc_when_c_is_one);
 }
 

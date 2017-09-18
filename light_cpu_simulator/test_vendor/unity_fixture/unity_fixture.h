@@ -80,4 +80,15 @@ int UnityMain(int argc, const char* argv[], void (*runAllTests)(void));
 /* You must compile with malloc replacement, as defined in unity_fixture_malloc_overrides.h */
 void UnityMalloc_MakeMallocFailAfterCount(int count);
 
+/*add by jie liu */
+#define SET_TEST_GROUP(x) 		TEST_GROUP(x)
+#define SET_TEST_SETUP(x) 		TEST_SETUP(x)
+#define SET_TEST_DOWN(x) 		TEST_TEAR_DOWN(x)
+#define SET_TEST(x, y)			TEST(x, y)
+#define SET_RUN_TEST_CASE(x, y)	RUN_TEST_CASE(x, y)
+#define SET_TEST_GROUP_RUNNER(x) TEST_GROUP_RUNNER(x)
+
+#define STR_VALUE(arg)      #arg
+#define GET_STR(name) STR_VALUE(name)
+
 #endif /* UNITY_FIXTURE_H_ */

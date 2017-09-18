@@ -1,7 +1,8 @@
 # file      test.mk
 # brief     
 
-TARGET_EXEC := test.o
+#TARGET_EXEC := test.o
+TARGET_EXEC := test.exe
 
 BUILD_DIR ?= ./build
 TEST_DIRS  := ./test

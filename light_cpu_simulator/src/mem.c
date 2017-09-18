@@ -65,3 +65,33 @@ void write_mem_from_string(unsigned char *Mem, char *DataString)
 	Mem[3] = HexChar[3];
 }
 
+void write_mem_from_int(unsigned char *Mem, int MemAddr, unsigned int WriteMemData)
+{
+    Mem[MemAddr] 	 = (unsigned char)(WriteMemData >> 24);
+	Mem[MemAddr + 1] = (unsigned char)(WriteMemData >> 16);
+	Mem[MemAddr + 2] = (unsigned char)(WriteMemData >> 8);
+	Mem[MemAddr + 3] = (unsigned char)(WriteMemData >> 0);
+}
+
+unsigned int read_4_bytes_from_mem(unsigned char *Mem, int MemAddr)
+{
+    unsigned int Data;
+    Data = (unsigned int)(Mem[MemAddr + 0] << 24) +
+           (unsigned int)(Mem[MemAddr + 1] << 16) + 
+           (unsigned int)(Mem[MemAddr + 2] << 8) + 
+           (unsigned int)(Mem[MemAddr + 3] << 0);
+    return Data;
+}
+
+unsigned short read_2_bytes_from_mem(unsigned char *Mem, int MemAddr)
+{
+    unsigned short Data;
+    Data = (unsigned short)(Mem[MemAddr + 0] << 8) +
+           (unsigned short)(Mem[MemAddr + 1] << 0);
+    return Data;
+}
+
+unsigned char read_1_bytes_from_mem(unsigned char *Mem, int MemAddr)
+{
+    return Mem[MemAddr];
+}
