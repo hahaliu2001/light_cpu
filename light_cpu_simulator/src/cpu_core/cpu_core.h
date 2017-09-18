@@ -83,6 +83,7 @@ typedef struct
 	unsigned int Src1;
 	unsigned int Src2;
 	unsigned int *dst;
+    unsigned int *Src1Reg;
 
 	/* stage destinition */
 	unsigned int stage; //current stage

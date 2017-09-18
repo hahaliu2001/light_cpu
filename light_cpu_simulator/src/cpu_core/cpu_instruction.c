@@ -315,6 +315,7 @@ unsigned int Format1_LD_WB_stage	(void)
     CPU *pCpu= get_cpu();
     unsigned char *pCh = (unsigned char *)(&pCpu->Src2);
     unsigned int RdSize = pCpu->InstFlag.reg.A*2 + pCpu->InstFlag.reg.B;
+    int Update = pCpu->InstFlag.reg.C * 4 + pCpu->InstFlag.reg.D * 2 + pCpu->InstFlag.reg.E;
     unsigned char c0,c1,c2,c3;
     unsigned int u32Value;
     int i32Value;
@@ -349,14 +350,28 @@ unsigned int Format1_LD_WB_stage	(void)
             *pCpu->dst = u32Value;
         }
         break;
-    case 2:
+    case 2:  //four byte
         c0 = pCh[0];
         c1 = pCh[1];
         c2 = pCh[2];
         c3 = pCh[3];
         u32Value = ((unsigned int)c0 << 24) + ((unsigned int)c1 << 16) +((unsigned int)c2 << 8) +(unsigned int)c3;
         *pCpu->dst = u32Value;
-        break;
+        if (pCpu->Src1Reg)
+        {
+            switch (Update)
+            {
+            case 0: *pCpu->Src1Reg += 0; break;
+            case 1: *pCpu->Src1Reg += 1; break;
+            case 2: *pCpu->Src1Reg += 2; break;
+            case 3: *pCpu->Src1Reg += 4; break;
+            case 4: *pCpu->Src1Reg -= 0; break;
+            case 5: *pCpu->Src1Reg -= 1; break;
+            case 6: *pCpu->Src1Reg -= 2; break;
+            case 7: *pCpu->Src1Reg -= 4; break;
+            }
+        }
+        break; 
     default:
         return 1;
 
@@ -379,6 +394,7 @@ unsigned int Format1_ST_MEM_stage	(void)
     unsigned int u32Addr = pCpu->Src1;
     unsigned char c0,c1,c2,c3;
     unsigned int RdSize = pCpu->InstFlag.reg.A*2 + pCpu->InstFlag.reg.B;
+    int Update = pCpu->InstFlag.reg.C * 4 + pCpu->InstFlag.reg.D * 2 + pCpu->InstFlag.reg.E;
 
     switch (RdSize)
     {
@@ -398,6 +414,20 @@ unsigned int Format1_ST_MEM_stage	(void)
         pCpu->DataMemBase[u32Addr+1] = c1;
         pCpu->DataMemBase[u32Addr+2] = c2;
         pCpu->DataMemBase[u32Addr+3] = c3;
+        if (pCpu->Src1Reg)
+        {
+            switch (Update)
+            {
+            case 0: *pCpu->Src1Reg += 0; break;
+            case 1: *pCpu->Src1Reg += 1; break;
+            case 2: *pCpu->Src1Reg += 2; break;
+            case 3: *pCpu->Src1Reg += 4; break;
+            case 4: *pCpu->Src1Reg -= 0; break;
+            case 5: *pCpu->Src1Reg -= 1; break;
+            case 6: *pCpu->Src1Reg -= 2; break;
+            case 7: *pCpu->Src1Reg -= 4; break;
+            }
+        }
         break;
     default:
         return 1;
@@ -679,6 +709,8 @@ unsigned int Format1_ID_stage(void)
     SrcReg  =   GET_INST_TYPE1_RB(pCpu->InstCh);
     pCpu->Src1 =   pCpu->CpuCore.R[SrcReg];
 
+    pCpu->Src1Reg = &pCpu->CpuCore.R[SrcReg];
+
     SrcReg  =   GET_INST_TYPE1_RA(pCpu->InstCh);
     pCpu->Src2 =   pCpu->CpuCore.R[SrcReg];
 
@@ -703,7 +735,7 @@ unsigned int Format2_ID_stage(void)
 
     SrcReg  =   GET_INST_TYPE2_RB(pCpu->InstCh);
     pCpu->Src1 =   pCpu->CpuCore.R[SrcReg];
-
+    pCpu->Src1Reg = 0;
     pCpu->Src2  =   GET_INST_TYPE2_IMM(pCpu->InstCh);
 
     //move to next stage
@@ -723,6 +755,7 @@ unsigned int Format3_ID_stage(void)
     pCpu->InstFlag.reg.E = GET_INST_TYPE3_FLAG_E(pCpu->InstCh);
 
     pCpu->Src1  =   GET_INST_TYPE3_IMM(pCpu->InstCh);
+    pCpu->Src1Reg = 0;
     //move to next stage
     pCpu->stage = CPU_STAGE_EX;
     return 0;
@@ -743,6 +776,7 @@ unsigned int Format4_ID_stage(void)
     pCpu->dst =    &pCpu->CpuCore.R[DstReg];
 
     pCpu->Src1  =   GET_INST_TYPE4_IMM(pCpu->InstCh);
+    pCpu->Src1Reg = 0;
     //move to next stage
     pCpu->stage = CPU_STAGE_EX;
     return 0;
