@@ -26,23 +26,38 @@ void reset_cpu(unsigned char *InstMemBase, unsigned int InstMemSize,
     InitInstTable(gFormat1InstCtxMenu,gFormat2InstCtxMenu,gFormat3InstCtxMenu,gFormat4InstCtxMenu);
 
 	/*reset CPU need reset all register to default value*/
-    Cpu.CpuCore.INT    =   0;
-    Cpu.CpuCore.INT_MASK   =   0;
-    Cpu.CpuCore.INT_STATUS =   0;
-
     for (i=0;i<CPU_MAX_REG_NUM;i++)
     {
-        Cpu.CpuCore.R[i]   =   0;
+        Cpu.CpuCore.R[i][0] = 0;
+        Cpu.CpuCore.R[i][1] = 0;
+        Cpu.CpuCore.R[i][2] = 0;
+        Cpu.CpuCore.R[i][3] = 0;
     }
-    Cpu.CpuCore.R[31]  =   0; //PC = 0
-    Cpu.CpuCore.R[30]  =   0;  //link reg = 0;
-    Cpu.CpuCore.R[29]  =   StackMemSize/4;
 
+    cpu_write_int_to_4char(0, Cpu.CpuCore.R[31]); //PC = 0
+    cpu_write_int_to_4char(0, Cpu.CpuCore.R[30]);  //link reg = 0;
+    cpu_write_int_to_4char(StackMemSize/4, Cpu.CpuCore.R[29]);
+    
     Cpu.CpuCore.SRCh[0] =   0;
     Cpu.CpuCore.SRCh[1] =   0;
     Cpu.CpuCore.SRCh[2] =   0;
     Cpu.CpuCore.SRCh[3] =   0;
+    SET_SR_FLAG_INT(Cpu.CpuCore.SRCh, 0);
 
+    for (i = 0; i < CPU_MAX_INT_NUM; i++)
+    {
+        Cpu.CpuCore.INT_input[i] = 0;
+        Cpu.CpuCore.INT_STATUS[i] = 0;
+        Cpu.CpuCore.INT_MASK[i] = 0;
+        Cpu.CpuCore.INT_priority[i] = i; //lowest
+        Cpu.CpuCore.ActiveIntReturnPC[i][0] = 0;
+        Cpu.CpuCore.ActiveIntReturnPC[i][1] = 0;
+        Cpu.CpuCore.ActiveIntReturnPC[i][2] = 0;
+        Cpu.CpuCore.ActiveIntReturnPC[i][3] = 0;
+        Cpu.CpuCore.ActiveIntPriority[i] = NO_INT_FLAG;
+    }
+    Cpu.CpuCore.ActiveIntPos = 0;
+    
 	Cpu.DataMemBase = DataMemBase;
 	Cpu.DataMemSizeInBtye = DataMemSize;
 	Cpu.InstMemBase = InstMemBase;
@@ -86,20 +101,58 @@ unsigned int run_cpu(void)
 
 unsigned int run_cpu_in_if_stage()
 {
-	unsigned int AddrInByte = Cpu.CpuCore.R[31];
+	unsigned int AddrInByte = cpu_get_int_from_4char(Cpu.CpuCore.R[31]);
+    unsigned int i;
+    unsigned char LowestIntPriority = NO_INT_FLAG;
+    unsigned int LowestIntLos = 0;
 
 	if (AddrInByte & 0x3)
 	{	// PC address is not 4 bytes align
 		return 1;
 	}
+
+    /* check interrupt*/
+    for(i = 0; i< CPU_MAX_INT_NUM; i++)
+    {
+        if ((Cpu.CpuCore.INT_input[i] == 1) && (Cpu.CpuCore.INT_MASK[i] == 1))
+        {
+            Cpu.CpuCore.INT_STATUS[i] = 1;
+            //clear int input
+            Cpu.CpuCore.INT_input[i] = 0;
+        }
+        if ((Cpu.CpuCore.INT_STATUS[i] == 1) && (Cpu.CpuCore.INT_priority[i] < LowestIntPriority))
+        {
+            LowestIntPriority = Cpu.CpuCore.INT_priority[i];
+            LowestIntLos = i;
+        }
+    }
+
+    if(GET_SR_FLAG_INT(Cpu.CpuCore.SRCh) && (LowestIntPriority < NO_INT_FLAG)) //if INT processing is enabled and there is int signal
+    {
+        //LowestIntPriority is lower than current active int, go to int processing
+        if (LowestIntPriority < Cpu.CpuCore.ActiveIntPriority[Cpu.CpuCore.ActiveIntPos])
+        {
+            // set avtive int
+            Cpu.CpuCore.ActiveIntPos++;
+            Cpu.CpuCore.ActiveIntPriority[Cpu.CpuCore.ActiveIntPos] = LowestIntPriority;
+            cpu_write_int_to_4char(AddrInByte, Cpu.CpuCore.ActiveIntReturnPC[Cpu.CpuCore.ActiveIntPos]);
+
+            //clear int status
+            Cpu.CpuCore.INT_STATUS[LowestIntLos] = 0;
+
+            //set int entry PC 
+            AddrInByte = LowestIntLos * INT_ENTRY_MEM_SIZE;
+            cpu_write_int_to_4char(AddrInByte, Cpu.CpuCore.R[31]);
+            
+        }
+    }
+
 	if(AddrInByte < Cpu.InstMemSizeInByte)
 	{
-		Cpu.InstCh[0] = Cpu.InstMemBase[AddrInByte];
-		Cpu.InstCh[1] = Cpu.InstMemBase[AddrInByte+1];
-		Cpu.InstCh[2] = Cpu.InstMemBase[AddrInByte+2];
-		Cpu.InstCh[3] = Cpu.InstMemBase[AddrInByte+3];
+        cpu_move_from_4byte_to_4byte(&Cpu.InstMemBase[AddrInByte], Cpu.InstCh);
+		
+        cpu_add_int_to_4byte(Cpu.CpuCore.R[31], 4, Cpu.CpuCore.R[31]);
 
-		Cpu.CpuCore.R[31] +=4;
 		Cpu.stage = CPU_STAGE_ID;
 		return 0;
 	}

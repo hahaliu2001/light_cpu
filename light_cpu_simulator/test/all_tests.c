@@ -19,6 +19,8 @@ static void RunAllTests(void)
   RUN_TEST_GROUP(inst_type2_shift);
   RUN_TEST_GROUP(inst_type2_ld);
   RUN_TEST_GROUP(inst_type2_st);
+  RUN_TEST_GROUP(inst_type2_swi);
+  RUN_TEST_GROUP(inst_type2_move_inner);
   RUN_TEST_GROUP(inst_type3_ajmp);
   RUN_TEST_GROUP(inst_type3_rjmp);
   RUN_TEST_GROUP(inst_type4_ajmp);

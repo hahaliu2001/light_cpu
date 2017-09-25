@@ -11,7 +11,14 @@
 #include "cpu_instruction.h"
 
 #define CPU_MAX_REG_NUM 32
-#define	CPU_MAX_INT_NUM	8
+#define	CPU_MAX_INT_NUM	32
+
+#define NO_INT_FLAG     0xff
+
+#define INT_ENTRY_MEM_SIZE  0x16
+#define INTERNAL_INT_NUM    8
+#define EXTERNAL_INT_NUM    8
+#define SWI_NUM             16  //number of SWI
 
 /*there are 5 RISC stage */
 #define CPU_STAGE_IF	0 //instruction fetch stage to read instruction from instruction mem
@@ -24,25 +31,34 @@
 #define GET_SR_FLAG_Z(ch)  ((ch[0] >> 6) & 1)
 #define GET_SR_FLAG_C(ch)  ((ch[0] >> 5) & 1)
 #define GET_SR_FLAG_V(ch)  ((ch[0] >> 4) & 1)
+#define GET_SR_FLAG_INT(ch)  ((ch[3] >> 7) & 1)
 
 #define SET_SR_FLAG_N(ch,val)  (ch[0] = (ch[0] & 0x7f) | ((val & 1) << 7))
 #define SET_SR_FLAG_Z(ch,val)  (ch[0] = (ch[0] & 0xBf) | ((val & 1) << 6))
 #define SET_SR_FLAG_C(ch,val)  (ch[0] = (ch[0] & 0xDf) | ((val & 1) << 5))
 #define SET_SR_FLAG_V(ch,val)  (ch[0] = (ch[0] & 0xEf) | ((val & 1) << 4))
+#define SET_SR_FLAG_INT(ch,val)  (ch[3] = (ch[3] & 0x7f) | ((val & 1) << 7))
 
 typedef struct
 {
 	/* CPU internal registers*/
-    unsigned char  SRCh[4]; //status register,using 4 char instead of int to make code endian independent.
-                            //  SRCh[0] bit 7 : N, negative bit
-                            //  SRCh[0] bit 6 : Z, Zero bit
-                            //  SRCh[0] bit 5 : C, Carry bit
-                            //  SRCh[0] bit 4 : V, overflow bit
-
-	unsigned int R[CPU_MAX_REG_NUM]; //general register,R31 is PC,R30 is link register,R29 is stack registers`
-	unsigned char INT; //interrupt
-	unsigned char INT_STATUS; //interrupt status
-	unsigned char INT_MASK; //interrupt mask, 1 is enable, 0 is disable
+    /*status register,using 4 char instead of int to make code endian independent. 
+    SRCh[0] bit 7 : N, negative bit
+    SRCh[0] bit 6 : Z, Zero bit
+    SRCh[0] bit 5 : C, Carry bit
+    SRCh[0] bit 4 : V, overflow bit
+    SRCh[3] bit 7 : INT global enable. 1: enable, 0: disable
+      */
+    unsigned char  SRCh[4]; //
+                            
+	unsigned char R[CPU_MAX_REG_NUM][4]; //general register,R31 is PC,R30 is link register,R29 is stack registers`
+	unsigned char INT_input[CPU_MAX_INT_NUM]; //interrupt. INT 0 -7 are reserved for CPU internal, 8-15 for external, 16-31 for SWI
+	unsigned char INT_STATUS[CPU_MAX_INT_NUM]; //interrupt status, 1 is int active
+	unsigned char INT_MASK[CPU_MAX_INT_NUM]; //interrupt mask, 1 is enable, 0 is disable
+    unsigned char INT_priority[CPU_MAX_INT_NUM]; //from 0 - 31. 0 is highest
+    unsigned char ActiveIntReturnPC[CPU_MAX_INT_NUM][4]; //used to store returning PC address when exit from INT
+    unsigned char ActiveIntPriority[CPU_MAX_INT_NUM];  //0xFF means not under int state
+    unsigned int ActiveIntPos;
 }CPU_CORE ;
 
 /* below is used to define Flags retrived from instructions */
@@ -80,10 +96,10 @@ typedef struct
     // veriables from instrution
 	unsigned char InstCh[4];
     INST_FLAG_u   InstFlag;
-	unsigned int Src1;
-	unsigned int Src2;
-	unsigned int *dst;
-    unsigned int *Src1Reg;
+	unsigned char Src1[4];
+	unsigned char Src2[4];
+	unsigned char *dst;
+    unsigned char *Src1Reg;
 
 	/* stage destinition */
 	unsigned int stage; //current stage

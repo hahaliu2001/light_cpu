@@ -10,22 +10,42 @@
 #include "cpu_core.h"
 
 /*below MACRO is used to access CPU core registers*/
-#define SET_CPU_REG(index, val)			(get_cpu()->CpuCore.R[index] = val)
+#define SET_CPU_REG(index, val)			(cpu_write_int_to_4char(val, get_cpu()->CpuCore.R[index]))
 
 #define SET_CPU_SR_FLAG_N(val)			(get_cpu()->CpuCore.SRCh[0] = (get_cpu()->CpuCore.SRCh[0] & 0X7f) | ((val & 1) << 7))
 #define SET_CPU_SR_FLAG_Z(val)			(get_cpu()->CpuCore.SRCh[0] = (get_cpu()->CpuCore.SRCh[0] & 0Xbf) | ((val & 1) << 6))
 #define SET_CPU_SR_FLAG_C(val)			(get_cpu()->CpuCore.SRCh[0] = (get_cpu()->CpuCore.SRCh[0] & 0Xdf) | ((val & 1) << 5))
 #define SET_CPU_SR_FLAG_V(val)			(get_cpu()->CpuCore.SRCh[0] = (get_cpu()->CpuCore.SRCh[0] & 0Xef) | ((val & 1) << 4))
 
-#define GET_CPU_REG(index)				(get_cpu()->CpuCore.R[index] )
-#define GET_CPU_PC_REG()				(get_cpu()->CpuCore.R[31] )
-#define GET_CPU_LR_REG()				(get_cpu()->CpuCore.R[30] )
-#define GET_CPU_SR_REG()				(get_cpu()->CpuCore.R[29] )
+#define GET_CPU_REG(index)				(cpu_get_int_from_4char(get_cpu()->CpuCore.R[index]) )
+#define GET_CPU_PC_REG()				(cpu_get_int_from_4char(get_cpu()->CpuCore.R[31]) )
+#define GET_CPU_LR_REG()				(cpu_get_int_from_4char(get_cpu()->CpuCore.R[30]) )
+#define GET_CPU_SR_REG()				(cpu_get_int_from_4char(get_cpu()->CpuCore.R[29]) )
+
+//#define READ_CPU_SRCH(dst)				(cpu_move_from_4byte_to_4byte(get_cpu()->CpuCore.SRCh, dst) )
+#define SET_CPU_SRCH(val)			    (cpu_write_int_to_4char(val, get_cpu()->CpuCore.SRCh))
+#define GET_CPU_SRCH()				    (cpu_get_int_from_4char(get_cpu()->CpuCore.SRCh) )
 
 #define GET_CPU_SR_FLAG_N(val)			((get_cpu()->CpuCore.SRCh[0] >> 7) & 1)
 #define GET_CPU_SR_FLAG_Z(val)			((get_cpu()->CpuCore.SRCh[0] >> 6) & 1)
 #define GET_CPU_SR_FLAG_C(val)			((get_cpu()->CpuCore.SRCh[0] >> 5) & 1)
 #define GET_CPU_SR_FLAG_V(val)			((get_cpu()->CpuCore.SRCh[0] >> 4) & 1)
+
+#define SET_CPU_INT_INPUT(pos, val)     (get_cpu()->CpuCore.INT_input[(pos)] = val)
+#define SET_CPU_INT_STATUS(pos, val)    (get_cpu()->CpuCore.INT_STATUS[(pos)] = val)
+#define SET_CPU_INT_MASK(pos, val)      (get_cpu()->CpuCore.INT_MASK[(pos)] = val)
+#define SET_CPU_INT_PRIORITY(pos, val)  (get_cpu()->CpuCore.INT_priority[(pos)] = val)
+#define SET_CPU_ACTIVE_INT_RETURN_PC(pos, val) (cpu_write_int_to_4char(val, get_cpu()->CpuCore.ActiveIntReturnPC[(pos)]))
+#define SET_CPU_ACTIVE_INT_PRIORITY(pos, val)  (get_cpu()->CpuCore.ActiveIntPriority[(pos)] = val)
+#define SET_CPU_ACTIVE_INT_POS(val)     (get_cpu()->CpuCore.ActiveIntPos = val)
+
+#define GET_CPU_INT_INPUT(pos)          (get_cpu()->CpuCore.INT_input[(pos)])
+#define GET_CPU_INT_STATUS(pos)         (get_cpu()->CpuCore.INT_STATUS[(pos)])
+#define GET_CPU_INT_MASK(pos)           (get_cpu()->CpuCore.INT_MASK[(pos)])
+#define GET_CPU_INT_PRIORITY(pos)       (get_cpu()->CpuCore.INT_priority[(pos)])
+#define GET_CPU_ACTIVE_INT_RETURN_PC(pos) (cpu_get_int_from_4char(get_cpu()->CpuCore.ActiveIntReturnPC[(pos)]))
+#define GET_CPU_ACTIVE_INT_PRIORITY(pos)  (get_cpu()->CpuCore.ActiveIntPriority[(pos)])
+#define GET_CPU_ACTIVE_INT_POS()        (get_cpu()->CpuCore.ActiveIntPos)
 
 /*below MACRO is used to generate cpu instructions */
 #define SET_INST_FORMAT_TYPE(ch, value)			(ch[0] = (((value & 0x03) << 6) | (ch[0] & 0x3F)))
@@ -176,6 +196,11 @@
 #define SET_TYPE2_ST_1_BYTE(ch, RD, RB, IMM)		    SET_TYPE2_INSTRUCTION(ch, OP_ST, 0, 0, 0, 0, 0, RD, RB, IMM)
 #define SET_TYPE2_ST_2_BYTE(ch, RD, RB, IMM)		    SET_TYPE2_INSTRUCTION(ch, OP_ST, 0, 1, 0, 0, 0, RD, RB, IMM)
 #define SET_TYPE2_ST_4_BYTE(ch, RD, RB, IMM)		    SET_TYPE2_INSTRUCTION(ch, OP_ST, 1, 0, 0, 0, 0, RD, RB, IMM)
+
+#define SET_TYPE2_SWI(ch, RB)		                    SET_TYPE2_INSTRUCTION(ch, OP_SWI, 0, 0, 0, 0, 0, 0, RB, 0)
+
+#define SET_TYPE2_MOVE_INNER_WRITE(ch, TYPE, RD, RB)	SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 0, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, RB, 0)
+#define SET_TYPE2_MOVE_INNER_READ(ch, TYPE, RD, RB)	    SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 1, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, RB, 0)
 
 #define SET_TYPE3_AJMP(ch, COND, IMM)	                SET_TYPE3_INSTRUCTION(ch, T3_OP_AJMP, 0, ((COND >> 3) & 1), ((COND >> 2) & 1), ((COND >> 1) & 1), ((COND >> 0) & 1), IMM)
 #define SET_TYPE3_AJMPL(ch, COND, IMM)	                SET_TYPE3_INSTRUCTION(ch, T3_OP_AJMP, 1, ((COND >> 3) & 1), ((COND >> 2) & 1), ((COND >> 1) & 1), ((COND >> 0) & 1), IMM)

@@ -10,37 +10,161 @@
 
 static unsigned int CheckCondFlag(unsigned int Cond,unsigned int N,unsigned int Z,unsigned int C,unsigned int V);
 
-unsigned int Format1_ADD_EX_stage	(void)
+static void cpu_int_add_core(unsigned int u32Src1, unsigned int u32Src2, unsigned int InputC, 
+                 unsigned char *N, unsigned char *Z, unsigned char *C, unsigned char *V, unsigned int *pu32Dst)
 {
-    CPU *pCpu= get_cpu();
-	unsigned long long int s1,s2,d;
+    //do add
+    unsigned long long int s1,s2,d;
     unsigned int dLow32,dHigh32;
 
-    s1 = (unsigned long long int)pCpu->Src1;
-    s2 = (unsigned long long int)pCpu->Src2;
-    if (pCpu->InstFlag.reg.A) //ADDC
-    {
-        d = s1 + s2 + (unsigned long long int)GET_SR_FLAG_C(pCpu->CpuCore.SRCh);
-    }
-    else
-    {
-        d = s1 + s2;
-    }
+    s1 = (unsigned long long int)u32Src1;
+    s2 = (unsigned long long int)u32Src2;
+    d = s1 + s2 + (unsigned long long int)InputC;
+    
     dLow32 = (unsigned int)d;
     dHigh32 = (unsigned int)(d>>32);
     //update dest
-    *pCpu->dst = dLow32;
+    *pu32Dst = dLow32;
 
     //update SR falg bit
-    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(dLow32 == 0));
-    SET_SR_FLAG_N(pCpu->CpuCore.SRCh,(dLow32 >> 31) & 1);
-    SET_SR_FLAG_C(pCpu->CpuCore.SRCh,(dHigh32 & 1));
+    *Z = (dLow32 == 0);
+    *N = ((dLow32 >> 31) & 1);
+    *C = (dHigh32 & 1);
 
     /*V is set to 1 when two signed value add together and below condition happen:
       1. positive + positve = negative
       2. negative + negative = positive*/
-    SET_SR_FLAG_V(pCpu->CpuCore.SRCh,((((int)pCpu->Src1 <0) && ((int)pCpu->Src2 <0) && ((int)dLow32 >0))
-                                || (((int)pCpu->Src1 >0) && ((int)pCpu->Src2 >0) && ((int)dLow32 <0))));
+    *V = ((((int)u32Src1 <0) && ((int)u32Src2 <0) && ((int)dLow32 >0))
+      || (((int)u32Src1 >0) && ((int)u32Src2 >0) && ((int)dLow32 <0)));
+}
+
+#if (CPU_ENDIAN == CPU_BIG_ENDIAN)
+
+unsigned int cpu_get_int_from_4char(unsigned char *Src)
+{
+    return ((((unsigned int)(Src[0])) << 24) + (((unsigned int)(Src[1])) << 16) + (((unsigned int)(Src[2])) << 8) + (((unsigned int)(Src[3])) << 0));
+}
+
+void cpu_write_int_to_4char(unsigned int u32Src, unsigned char *Dst)
+{
+    Dst[0] = (unsigned char)((u32Src >> 24) & 0xff);
+    Dst[1] = (unsigned char)((u32Src >> 16) & 0xff);
+    Dst[2] = (unsigned char)((u32Src >> 8) & 0xff);
+    Dst[3] = (unsigned char)((u32Src >> 0) & 0xff);
+}
+
+#else
+unsigned int cpu_get_int_from_4char(unsigned char *Src)
+{
+    return ((((unsigned int)(Src[3])) << 24) + (((unsigned int)(Src[2])) << 16) + (((unsigned int)(Src[1])) << 8) + (((unsigned int)(Src[0])) << 0));
+}
+
+void cpu_write_int_to_4char(unsigned int u32Src, unsigned char *Dst)
+{
+    Dst[3] = (unsigned char)((u32Src >> 24) & 0xff);
+    Dst[2] = (unsigned char)((u32Src >> 16) & 0xff);
+    Dst[1] = (unsigned char)((u32Src >> 8) & 0xff);
+    Dst[0] = (unsigned char)((u32Src >> 0) & 0xff);
+}
+#endif
+
+void cpu_move_from_4byte_to_4byte(unsigned char *pSrc, unsigned char *pDst)
+{
+    pDst[0] = pSrc[0];
+    pDst[1] = pSrc[1];
+    pDst[2] = pSrc[2];
+    pDst[3] = pSrc[3];
+}
+
+void cpu_add_int_to_4byte(unsigned char *pSrc1, unsigned int u32Src2, unsigned char *pDst)
+{
+    unsigned int u32Src1, u32Dst;
+    
+    u32Src1 = cpu_get_int_from_4char(pSrc1);
+    
+    u32Dst = u32Src1 + u32Src2;
+    
+    cpu_write_int_to_4char(u32Dst, pDst);
+}
+
+void cpu_sub_int_from_4byte(unsigned char *pSrc1, unsigned int u32Src2, unsigned char *pDst)
+{
+    unsigned int u32Src1, u32Dst;
+    
+    u32Src1 = cpu_get_int_from_4char(pSrc1);
+    
+    u32Dst = u32Src1 - u32Src2;
+    
+    cpu_write_int_to_4char(u32Dst, pDst);
+}
+
+void cpu_int_add(unsigned char *Src1, unsigned char *Src2, unsigned int InputC, 
+                 unsigned char *N, unsigned char *Z, unsigned char *C, unsigned char *V, unsigned char *Dst)
+{
+    unsigned int u32Src1, u32Src2, u32Dst;
+    
+    u32Src1 = cpu_get_int_from_4char(Src1);
+    u32Src2 = cpu_get_int_from_4char(Src2);
+    
+    cpu_int_add_core(u32Src1, u32Src2, InputC, N, Z, C, V, &u32Dst);
+
+    cpu_write_int_to_4char(u32Dst, Dst);
+    
+}
+
+void cpu_int_sub(unsigned char *Src1, unsigned char *Src2, unsigned int InputC, 
+                 unsigned char *N, unsigned char *Z, unsigned char *C, unsigned char *V, unsigned char *Dst)
+{
+    unsigned int u32Src1, u32Src2, u32Dst;
+
+    u32Src1 = cpu_get_int_from_4char(Src1);
+    u32Src2 = cpu_get_int_from_4char(Src2);
+    u32Src2 = (unsigned int)(0 - (int)u32Src2 - 1);
+
+    cpu_int_add_core(u32Src1, u32Src2, InputC, N, Z, C, V, &u32Dst);
+
+    cpu_write_int_to_4char(u32Dst, Dst);
+}
+
+void cpu_int_mpy(unsigned char *Src1, unsigned char *Src2, 
+                 unsigned char *N, unsigned char *Z, unsigned char *Dst)
+{
+    unsigned int u32Src1, u32Src2, u32Dst;
+    
+    u32Src1 = cpu_get_int_from_4char(Src1);
+    u32Src2 = cpu_get_int_from_4char(Src2);
+    
+    u32Dst = u32Src1 *  u32Src2;
+
+    //update SR flag bit
+    *Z = (u32Dst == 0);
+    *N = (u32Dst >> 31) & 1;
+    
+    cpu_write_int_to_4char(u32Dst, Dst);
+    
+}
+
+unsigned int Format1_ADD_EX_stage	(void)
+{
+    CPU *pCpu= get_cpu();
+    unsigned char InputC, N, Z, C, V;
+
+    if (pCpu->InstFlag.reg.A) //ADDC
+    {
+        InputC = GET_SR_FLAG_C(pCpu->CpuCore.SRCh);
+    }
+    else
+    {
+        InputC = 0;
+    }
+
+    cpu_int_add(pCpu->Src1, pCpu->Src2, InputC, &N, &Z, &C, &V, pCpu->dst);
+                 
+    //update SR falg bit
+    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh, Z);
+    SET_SR_FLAG_N(pCpu->CpuCore.SRCh, N);
+    SET_SR_FLAG_C(pCpu->CpuCore.SRCh, C);
+    SET_SR_FLAG_V(pCpu->CpuCore.SRCh, V);
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -53,34 +177,24 @@ unsigned int Format1_ADD_WB_stage	(void){ return 0;}
 unsigned int Format1_SUB_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
-	unsigned long long int s1,s2,d;
-    unsigned int dLow32,dHigh32;
+    unsigned char InputC, N, Z, C, V;
 
-    s1 = (unsigned long long int)pCpu->Src1;
-    s2 = (unsigned long long int)(0 - pCpu->Src2);
-    if (pCpu->InstFlag.reg.A) //SBC
+    if (pCpu->InstFlag.reg.A) //ADDC
     {
-        d = s1 + s2 + (unsigned long long int)GET_SR_FLAG_C(pCpu->CpuCore.SRCh) - 1;
+        InputC = GET_SR_FLAG_C(pCpu->CpuCore.SRCh);
     }
     else
     {
-        d = s1 + s2;
+        InputC = 1;
     }
-    dLow32 = (unsigned int)d;
-    dHigh32 = (unsigned int)(d>>32);
-    //update dest
-    *pCpu->dst = dLow32;
 
+    cpu_int_sub(pCpu->Src1, pCpu->Src2, InputC, &N, &Z, &C, &V, pCpu->dst);
+                 
     //update SR falg bit
-    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(dLow32==0));
-    SET_SR_FLAG_N(pCpu->CpuCore.SRCh,(dLow32 >> 31) & 1);
-    SET_SR_FLAG_C(pCpu->CpuCore.SRCh,(dHigh32 & 1));
-
-    /*V is set to 1 when two signed value sub together and below condition happen:
-      1. positive - negative = negative
-      2. negative - positive = positive*/
-    SET_SR_FLAG_V(pCpu->CpuCore.SRCh,((((int)pCpu->Src1 >0) && ((int)pCpu->Src2 <0) && ((int)dLow32 <0))
-                                || (((int)pCpu->Src1 <0) && ((int)pCpu->Src2 >0) && ((int)dLow32 >0))));
+    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh, Z);
+    SET_SR_FLAG_N(pCpu->CpuCore.SRCh, N);
+    SET_SR_FLAG_C(pCpu->CpuCore.SRCh, C);
+    SET_SR_FLAG_V(pCpu->CpuCore.SRCh, V);
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -92,12 +206,12 @@ unsigned int Format1_SUB_WB_stage	(void){ return 0;}
 unsigned int Format1_MPY_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
-
-    *pCpu->dst = pCpu->Src1 *  pCpu->Src2;
+    unsigned char N, Z;
+    cpu_int_mpy(pCpu->Src1, pCpu->Src2, &N, &Z, pCpu->dst);
 
     //update SR flag bit
-    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(*pCpu->dst==0));
-    SET_SR_FLAG_N(pCpu->CpuCore.SRCh,(*pCpu->dst >> 31) & 1);
+    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh, Z);
+    SET_SR_FLAG_N(pCpu->CpuCore.SRCh, N);
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -111,7 +225,7 @@ unsigned int Format1_MOV_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
 
-    *pCpu->dst = pCpu->Src1;
+    cpu_move_from_4byte_to_4byte(pCpu->Src1, pCpu->dst);
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -123,27 +237,18 @@ unsigned int Format1_MOV_WB_stage	(void){ return 0;}
 unsigned int Format1_CMP_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
-    unsigned long long int s1,s2,d;
-    unsigned int dLow32,dHigh32;
+    unsigned char InputC, N, Z, C, V;
+    unsigned char NotUsedDst[4];
 
+    InputC = 1;
 
-    s1 = (unsigned long long int)pCpu->Src1;
-    s2 = (unsigned long long int)(0 - pCpu->Src2);
-    d = s1 + s2;
-
-    dLow32 = (unsigned int)d;
-    dHigh32 = (unsigned int)(d>>32);
-
+    cpu_int_sub(pCpu->Src1, pCpu->Src2, InputC, &N, &Z, &C, &V, NotUsedDst);
+                 
     //update SR falg bit
-    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(dLow32==0));
-    SET_SR_FLAG_N(pCpu->CpuCore.SRCh,(dLow32 >> 31) & 1);
-    SET_SR_FLAG_C(pCpu->CpuCore.SRCh,(dHigh32 & 1));
-
-    /*V is set to 1 when two signed value sub together and below condition happen:
-      1. positive - negative = negative
-      2. negative - positive = positive*/
-    SET_SR_FLAG_V(pCpu->CpuCore.SRCh,((((int)pCpu->Src1 >0) && ((int)pCpu->Src2 <0) && ((int)dLow32 <0))
-                                || (((int)pCpu->Src1 <0) && ((int)pCpu->Src2 >0) && ((int)dLow32 >0))));
+    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh, Z);
+    SET_SR_FLAG_N(pCpu->CpuCore.SRCh, N);
+    SET_SR_FLAG_C(pCpu->CpuCore.SRCh, C);
+    SET_SR_FLAG_V(pCpu->CpuCore.SRCh, V);
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -152,39 +257,54 @@ unsigned int Format1_CMP_EX_stage	(void)
 unsigned int Format1_CMP_MEM_stage	(void){ return 0;}
 unsigned int Format1_CMP_WB_stage	(void){ return 0;}
 
-unsigned int Format1_SHIFT_EX_stage	(void)
+static void cpu_int_shift_core(unsigned int u32Src1, unsigned int u32Src2, unsigned char A, unsigned char *Z, unsigned char *C, unsigned int *pu32Dst)
 {
     unsigned long long int s1,d;
     unsigned int dLow32,dHigh32;
     int i32Shift;
-    CPU *pCpu= get_cpu();
-
-    i32Shift = (int)pCpu->Src2;
+    
+    i32Shift = (int)u32Src2;
 
     if (i32Shift >=0) //left shift is the same for logical and arithmetical shift
     {
-        s1 = (unsigned long long int)pCpu->Src1;
+        s1 = (unsigned long long int)u32Src1;
         d = s1 << i32Shift;
         dLow32 = (unsigned int)d;
         dHigh32 = (unsigned int)(d>>32);
-        *pCpu->dst = dLow32;
+        *pu32Dst = dLow32;
         //set flag
-        SET_SR_FLAG_C(pCpu->CpuCore.SRCh,(dHigh32 != 0));
-        SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(0 == dLow32));
+        *C = (dHigh32 != 0);
+        *Z = (0 == dLow32);
     }
     else  //for right shift
     {
-        if (pCpu->InstFlag.reg.A) //logic shift
+        if (A) //logic shift
         {
-           *pCpu->dst = (unsigned int)((int)pCpu->Src1 >> (-i32Shift));
+           *pu32Dst = (unsigned int)((int)u32Src1 >> (-i32Shift));
         }
         else  //arithmetical shift
         {
-            *pCpu->dst = (unsigned int)pCpu->Src1 >> (-i32Shift);
+            *pu32Dst = (unsigned int)u32Src1 >> (-i32Shift);
         }
-        SET_SR_FLAG_Z(pCpu->CpuCore.SRCh,(0 == *pCpu->dst));
-        SET_SR_FLAG_C(pCpu->CpuCore.SRCh,0);
+        *Z = (0 == *pu32Dst);
+        *C = 0;
     }
+}
+unsigned int Format1_SHIFT_EX_stage	(void)
+{
+    unsigned int u32Src1, u32Src2, u32Dst;
+    unsigned char C, Z;
+    CPU *pCpu= get_cpu();
+
+    u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    u32Src2 = cpu_get_int_from_4char(pCpu->Src2);
+    
+    cpu_int_shift_core(u32Src1, u32Src2, pCpu->InstFlag.reg.A, &Z, &C, &u32Dst);
+
+    cpu_write_int_to_4char(u32Dst, pCpu->dst);
+
+    SET_SR_FLAG_C(pCpu->CpuCore.SRCh, C);
+    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh, Z);
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -197,35 +317,40 @@ unsigned int Format1_AND_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
     unsigned int Ra,Rb,Rd;
+    unsigned int u32Src1, u32Src2;
+
+    u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    u32Src2 = cpu_get_int_from_4char(pCpu->Src2);
 
     if (pCpu->InstFlag.reg.B)
     {
-        Rb = ~pCpu->Src1;
+        Rb = ~u32Src1;
     }
     else
     {
-        Rb = pCpu->Src1;
+        Rb = u32Src1;
     }
 
     if (pCpu->InstFlag.reg.C)
     {
-        Ra = ~pCpu->Src2;
+        Ra = ~u32Src2;
     }
     else
     {
-        Ra = pCpu->Src2;
+        Ra = u32Src2;
     }
 
     Rd = Ra & Rb;
 
     if (pCpu->InstFlag.reg.A)
     {
-        *pCpu->dst = ~Rd;
+        cpu_write_int_to_4char(~Rd, pCpu->dst);
     }
     else
     {
-        *pCpu->dst = Rd;
+        cpu_write_int_to_4char(Rd, pCpu->dst);
     }
+
     //update stage
     pCpu->stage = CPU_STAGE_IF;
     return 0;
@@ -237,35 +362,40 @@ unsigned int Format1_XOR_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
     unsigned int Ra,Rb,Rd;
+    unsigned int u32Src1, u32Src2;
+
+    u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    u32Src2 = cpu_get_int_from_4char(pCpu->Src2);
 
     if (pCpu->InstFlag.reg.B)
     {
-        Rb = ~pCpu->Src1;
+        Rb = ~u32Src1;
     }
     else
     {
-        Rb = pCpu->Src1;
+        Rb = u32Src1;
     }
 
     if (pCpu->InstFlag.reg.C)
     {
-        Ra = ~pCpu->Src2;
+        Ra = ~u32Src2;
     }
     else
     {
-        Ra = pCpu->Src2;
+        Ra = u32Src2;
     }
 
     Rd = Ra ^ Rb;
 
     if (pCpu->InstFlag.reg.A)
     {
-        *pCpu->dst = ~Rd;
+        cpu_write_int_to_4char(~Rd, pCpu->dst);
     }
     else
     {
-        *pCpu->dst = Rd;
+        cpu_write_int_to_4char(Rd, pCpu->dst);
     }
+
     //update stage
     pCpu->stage = CPU_STAGE_IF;
     return 0;
@@ -276,7 +406,12 @@ unsigned int Format1_XOR_WB_stage	(void){ return 0;}
 unsigned int Format1_NOT_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
-    *pCpu->dst = ~pCpu->Src1;
+    unsigned int u32Src1, u32Dst;
+
+    u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    u32Dst = ~u32Src1;
+
+    cpu_write_int_to_4char(u32Dst, pCpu->dst);
 
     //update stage
     pCpu->stage = CPU_STAGE_IF;
@@ -290,8 +425,10 @@ unsigned int Format1_NOT_WB_stage	(void){ return 0;}
 unsigned int Format1_LD_EX_stage	(void)
 {
     CPU *pCpu= get_cpu();
+    unsigned int u32Src1;
 
-    pCpu->Src1 = (unsigned int)((int)pCpu->Src1 + (int)pCpu->Src2); //src1 save mem address
+    u32Src1 = (unsigned int)((int)cpu_get_int_from_4char(pCpu->Src1) + (int)cpu_get_int_from_4char(pCpu->Src2)); //src1 save mem address
+    cpu_write_int_to_4char(u32Src1, pCpu->Src1);
 
     //update stage
     pCpu->stage = CPU_STAGE_MEM;
@@ -301,9 +438,12 @@ unsigned int Format1_LD_EX_stage	(void)
 unsigned int Format1_LD_MEM_stage	(void)
 {
     CPU *pCpu= get_cpu();
-    unsigned int *pDataMem = (unsigned int*)(pCpu->DataMemBase);
-    pCpu->Src2 = pDataMem[pCpu->Src1>>2]; //read data with 4 bytes align
-
+    unsigned int u32Src1;
+    unsigned char *pMem;
+    u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    
+    pMem = &pCpu->DataMemBase[(u32Src1 >> 2) << 2];
+    cpu_move_from_4byte_to_4byte(pMem, pCpu->Src2);
     //update stage
     pCpu->stage = CPU_STAGE_WB;
     return 0;
@@ -313,9 +453,9 @@ unsigned int Format1_LD_MEM_stage	(void)
 unsigned int Format1_LD_WB_stage	(void)
 {
     CPU *pCpu= get_cpu();
-    unsigned char *pCh = (unsigned char *)(&pCpu->Src2);
-    unsigned int RdSize = pCpu->InstFlag.reg.A*2 + pCpu->InstFlag.reg.B;
-    int Update = pCpu->InstFlag.reg.C * 4 + pCpu->InstFlag.reg.D * 2 + pCpu->InstFlag.reg.E;
+    unsigned int u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    unsigned char RdSize = pCpu->InstFlag.reg.A*2 + pCpu->InstFlag.reg.B;
+    unsigned char Update = pCpu->InstFlag.reg.C * 4 + pCpu->InstFlag.reg.D * 2 + pCpu->InstFlag.reg.E;
     unsigned char c0,c1,c2,c3;
     unsigned int u32Value;
     int i32Value;
@@ -323,52 +463,52 @@ unsigned int Format1_LD_WB_stage	(void)
     switch (RdSize)
     {
     case 0: //read one byte
-        c0 = pCh[pCpu->Src1 & 0x3]; // pCpu->Src1 & 0x3 return byte location in 4 bytes
+        c0 = pCpu->Src2[u32Src1 & 0x3]; // pCpu->Src1 & 0x3 return byte location in 4 bytes
         if (pCpu->InstFlag.reg.C) //if signed extension
         {
             i32Value = (int)c0;
             i32Value = (i32Value << 24) >> 24;
-            *pCpu->dst = (unsigned int)i32Value;
+            cpu_write_int_to_4char((unsigned int)i32Value, pCpu->dst);
         }
         else
         {
-            *pCpu->dst = (unsigned int)c0;
+            cpu_write_int_to_4char((unsigned int)c0, pCpu->dst);
         }
         break;
     case 1: //read 2 bytes
-        c0 = pCh[((pCpu->Src1 >> 1) & 1) << 1];
-        c1 = pCh[(((pCpu->Src1 >> 1) & 1) << 1)+1];
+        c0 = pCpu->Src2[((u32Src1 >> 1) & 1) << 1]; 
+        c1 = pCpu->Src2[(((u32Src1 >> 1) & 1) << 1)+1];
         u32Value = ((unsigned int)c0 << 8) + (unsigned int)c1;
         if (pCpu->InstFlag.reg.C) //if signed extension
         {
             i32Value = (int)u32Value;
             i32Value = (i32Value << 16) >> 16;
-            *pCpu->dst = (unsigned int)i32Value;
+            cpu_write_int_to_4char((unsigned int)i32Value, pCpu->dst);
         }
         else
         {
-            *pCpu->dst = u32Value;
+            cpu_write_int_to_4char((unsigned int)u32Value, pCpu->dst);
         }
         break;
     case 2:  //four byte
-        c0 = pCh[0];
-        c1 = pCh[1];
-        c2 = pCh[2];
-        c3 = pCh[3];
+        c0 = pCpu->Src2[0];
+        c1 = pCpu->Src2[1];
+        c2 = pCpu->Src2[2];
+        c3 = pCpu->Src2[3];
         u32Value = ((unsigned int)c0 << 24) + ((unsigned int)c1 << 16) +((unsigned int)c2 << 8) +(unsigned int)c3;
-        *pCpu->dst = u32Value;
+        cpu_write_int_to_4char((unsigned int)u32Value, pCpu->dst);
         if (pCpu->Src1Reg)
         {
             switch (Update)
             {
-            case 0: *pCpu->Src1Reg += 0; break;
-            case 1: *pCpu->Src1Reg += 1; break;
-            case 2: *pCpu->Src1Reg += 2; break;
-            case 3: *pCpu->Src1Reg += 4; break;
-            case 4: *pCpu->Src1Reg -= 0; break;
-            case 5: *pCpu->Src1Reg -= 1; break;
-            case 6: *pCpu->Src1Reg -= 2; break;
-            case 7: *pCpu->Src1Reg -= 4; break;
+            case 0: cpu_add_int_to_4byte(pCpu->Src1Reg, 0, pCpu->Src1Reg); break;
+            case 1: cpu_add_int_to_4byte(pCpu->Src1Reg, 1, pCpu->Src1Reg); break;
+            case 2: cpu_add_int_to_4byte(pCpu->Src1Reg, 2, pCpu->Src1Reg); break;
+            case 3: cpu_add_int_to_4byte(pCpu->Src1Reg, 4, pCpu->Src1Reg); break;
+            case 4: cpu_sub_int_from_4byte(pCpu->Src1Reg, 0, pCpu->Src1Reg); break;
+            case 5: cpu_sub_int_from_4byte(pCpu->Src1Reg, 1, pCpu->Src1Reg); break;
+            case 6: cpu_sub_int_from_4byte(pCpu->Src1Reg, 2, pCpu->Src1Reg); break;
+            case 7: cpu_sub_int_from_4byte(pCpu->Src1Reg, 4, pCpu->Src1Reg); break;
             }
         }
         break; 
@@ -390,11 +530,11 @@ unsigned int Format1_ST_EX_stage	(void)
 unsigned int Format1_ST_MEM_stage	(void)
 {
     CPU *pCpu= get_cpu();
-    unsigned int u32Value = *pCpu->dst;
-    unsigned int u32Addr = pCpu->Src1;
+    unsigned int u32Value = cpu_get_int_from_4char(pCpu->dst);
+    unsigned int u32Addr = cpu_get_int_from_4char(pCpu->Src1);
     unsigned char c0,c1,c2,c3;
-    unsigned int RdSize = pCpu->InstFlag.reg.A*2 + pCpu->InstFlag.reg.B;
-    int Update = pCpu->InstFlag.reg.C * 4 + pCpu->InstFlag.reg.D * 2 + pCpu->InstFlag.reg.E;
+    unsigned char RdSize = pCpu->InstFlag.reg.A*2 + pCpu->InstFlag.reg.B;
+    unsigned char Update = pCpu->InstFlag.reg.C * 4 + pCpu->InstFlag.reg.D * 2 + pCpu->InstFlag.reg.E;
 
     switch (RdSize)
     {
@@ -418,14 +558,14 @@ unsigned int Format1_ST_MEM_stage	(void)
         {
             switch (Update)
             {
-            case 0: *pCpu->Src1Reg += 0; break;
-            case 1: *pCpu->Src1Reg += 1; break;
-            case 2: *pCpu->Src1Reg += 2; break;
-            case 3: *pCpu->Src1Reg += 4; break;
-            case 4: *pCpu->Src1Reg -= 0; break;
-            case 5: *pCpu->Src1Reg -= 1; break;
-            case 6: *pCpu->Src1Reg -= 2; break;
-            case 7: *pCpu->Src1Reg -= 4; break;
+            case 0: cpu_add_int_to_4byte(pCpu->Src1Reg, 0, pCpu->Src1Reg); break;
+            case 1: cpu_add_int_to_4byte(pCpu->Src1Reg, 1, pCpu->Src1Reg); break;
+            case 2: cpu_add_int_to_4byte(pCpu->Src1Reg, 2, pCpu->Src1Reg); break;
+            case 3: cpu_add_int_to_4byte(pCpu->Src1Reg, 4, pCpu->Src1Reg); break;
+            case 4: cpu_sub_int_from_4byte(pCpu->Src1Reg, 0, pCpu->Src1Reg); break;
+            case 5: cpu_sub_int_from_4byte(pCpu->Src1Reg, 1, pCpu->Src1Reg); break;
+            case 6: cpu_sub_int_from_4byte(pCpu->Src1Reg, 2, pCpu->Src1Reg); break;
+            case 7: cpu_sub_int_from_4byte(pCpu->Src1Reg, 4, pCpu->Src1Reg); break;
             }
         }
         break;
@@ -443,12 +583,13 @@ unsigned int Format2_ADD_EX_stage	(void)
 {
     int i32Value;
     CPU *pCpu= get_cpu();
-    i32Value  =   pCpu->Src2;
+    i32Value = (int)cpu_get_int_from_4char(pCpu->Src2);
     if (pCpu->InstFlag.reg.B) //if signed data
     {
         i32Value = (i32Value << 21) >> 21; //signed extended from 10bits to 32 bits
     }
-    pCpu->Src2 =   (unsigned int)i32Value;
+    cpu_write_int_to_4char((unsigned int)i32Value, pCpu->Src2);
+
     return Format1_ADD_EX_stage();
 }
 unsigned int Format2_ADD_MEM_stage	        (void){ return 0;}
@@ -459,9 +600,9 @@ unsigned int Format2_SUB_EX_stage	        (void)
     unsigned int d1,d2;
     int i32Value;
     CPU *pCpu= get_cpu();
-    d1 = pCpu->Src1;
+    d1 = cpu_get_int_from_4char(pCpu->Src1);
 
-    i32Value = (int)pCpu->Src2;
+    i32Value = (int)cpu_get_int_from_4char(pCpu->Src2);
     if (pCpu->InstFlag.reg.B) //if signed data
     {
         i32Value = (i32Value << 21) >> 21; //signed extended from 10bits to 32 bits
@@ -470,13 +611,13 @@ unsigned int Format2_SUB_EX_stage	        (void)
 
     if (pCpu->InstFlag.reg.C) //reserve, Imme - Rb
     {
-        pCpu->Src1 = d2;
-        pCpu->Src2 = d1;
+        cpu_write_int_to_4char(d2, pCpu->Src1);
+        cpu_write_int_to_4char(d1, pCpu->Src2);
     }
     else
     {
-        pCpu->Src1 = d1;
-        pCpu->Src2 = d2;
+        cpu_write_int_to_4char(d1, pCpu->Src1);
+        cpu_write_int_to_4char(d2, pCpu->Src2);
     }
     return Format1_SUB_EX_stage();
 }
@@ -488,12 +629,12 @@ unsigned int Format2_MPY_EX_stage	        (void)
 {
     int i32Value;
     CPU *pCpu= get_cpu();
-    i32Value = (int)pCpu->Src2;
+    i32Value = (int)cpu_get_int_from_4char(pCpu->Src2);
     if (pCpu->InstFlag.reg.A) //if signed data
     {
         i32Value = (i32Value << 21) >> 21; //signed extended from 10bits to 32 bits
     }
-    pCpu->Src2 =   (unsigned int)i32Value;
+    cpu_write_int_to_4char((unsigned int)i32Value, pCpu->Src2);
     return Format1_MPY_EX_stage();
 }
 unsigned int Format2_MPY_MEM_stage	        (void){ return 0;}
@@ -501,11 +642,28 @@ unsigned int Format2_MPY_WB_stage           (void){ return 0;}
 
 unsigned int Format2_SHIFT_EX_stage	        (void)
 {
+    unsigned int u32Src1, u32Src2, u32Dst;
+    unsigned char C, Z;
     CPU *pCpu= get_cpu();
-    int i32Value = (int)pCpu->Src2;
+    int i32Value;
+
+    u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    u32Src2 = cpu_get_int_from_4char(pCpu->Src2);
+
+    i32Value = u32Src2;
     i32Value = (i32Value << 21) >> 21; //signed extended from 10bits to 32 bits
-    pCpu->Src2 = (unsigned int)i32Value;
-    return Format1_SHIFT_EX_stage();
+    u32Src2 = (unsigned int)i32Value;
+
+    cpu_int_shift_core(u32Src1, u32Src2, pCpu->InstFlag.reg.A, &Z, &C, &u32Dst);
+
+    cpu_write_int_to_4char(u32Dst, pCpu->dst);
+
+    SET_SR_FLAG_C(pCpu->CpuCore.SRCh, C);
+    SET_SR_FLAG_Z(pCpu->CpuCore.SRCh, Z);
+
+    //update stage
+    pCpu->stage = CPU_STAGE_IF;
+    return 0;
 }
 unsigned int Format2_SHIFT_MEM_stage	    (void){ return 0;}
 unsigned int Format2_SHIFT_WB_stage         (void){ return 0;}
@@ -513,9 +671,12 @@ unsigned int Format2_SHIFT_WB_stage         (void){ return 0;}
 unsigned int Format2_LD_EX_stage	        (void)
 {
     CPU *pCpu= get_cpu();
-    int i32Value = (int)pCpu->Src2;
+    unsigned int u32Src1;
+    int i32Value = (int)cpu_get_int_from_4char(pCpu->Src2);
+
     i32Value = (i32Value << 21) >> 21; //signed extended from 10bits to 32 bits
-    pCpu->Src1 = (unsigned int)((int)pCpu->Src1 + i32Value); //src1 save mem address
+    u32Src1 = (unsigned int)((int)cpu_get_int_from_4char(pCpu->Src1) + i32Value); //src1 save mem address
+    cpu_write_int_to_4char(u32Src1, pCpu->Src1);
 
     //update stage
     pCpu->stage = CPU_STAGE_MEM;
@@ -540,11 +701,170 @@ unsigned int Format2_ST_MEM_stage	        (void)
 }
 unsigned int Format2_ST_WB_stage            (void){ return 0;}
 
-unsigned int Format2_SWI_EX_stage	        (void){ return 0;}
+unsigned int Format2_SWI_EX_stage	        (void)
+{ 
+    CPU *pCpu= get_cpu();
+    unsigned int u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+
+    pCpu->CpuCore.INT_input[INTERNAL_INT_NUM + EXTERNAL_INT_NUM + (u32Src1 & (SWI_NUM - 1))] = 1;
+
+    //update stage
+    pCpu->stage = CPU_STAGE_IF;
+    return 0;
+}
 unsigned int Format2_SWI_MEM_stage	        (void){ return 0;}
 unsigned int Format2_SWI_WB_stage           (void){ return 0;}
 
-unsigned int Format2_MOV_INNER_EX_stage	    (void){ return 0;}
+static void Format2_MOV_INNER_EX_stage_read_from(CPU *pCpu)
+{
+    unsigned int Type, i;
+    unsigned int B,Cx,D,E;
+    unsigned char *pDstInCh = (unsigned char *)pCpu->dst;
+    unsigned int Ctrl = cpu_get_int_from_4char(pCpu->Src1);
+    B = pCpu->InstFlag.reg.B;
+    Cx = pCpu->InstFlag.reg.C;
+    D = pCpu->InstFlag.reg.D;
+    E = pCpu->InstFlag.reg.E;
+    Type = B*8+Cx*4+D*2+E;
+
+    switch (Type)
+    {
+    case INTERNAL_REG_SR:
+        cpu_move_from_4byte_to_4byte(pCpu->CpuCore.SRCh, pDstInCh);
+        break;
+    case INTERNAL_REG_INT_INPUT:
+        for (i = 0; i< 4;i++)
+        {
+            pDstInCh[i] = ((pCpu->CpuCore.INT_input[i * 8 + 0] & 1) << 7)
+                        | ((pCpu->CpuCore.INT_input[i * 8 + 1] & 1) << 6)
+                        | ((pCpu->CpuCore.INT_input[i * 8 + 2] & 1) << 5)
+                        | ((pCpu->CpuCore.INT_input[i * 8 + 3] & 1) << 4)
+                        | ((pCpu->CpuCore.INT_input[i * 8 + 4] & 1) << 3)
+                        | ((pCpu->CpuCore.INT_input[i * 8 + 5] & 1) << 2)
+                        | ((pCpu->CpuCore.INT_input[i * 8 + 6] & 1) << 1)
+                        | ((pCpu->CpuCore.INT_input[i * 8 + 7] & 1) << 0);
+        }
+        break;
+    case INTERNAL_REG_INT_STATUS:
+        for (i = 0; i< 4;i++)
+        {
+            pDstInCh[i] = ((pCpu->CpuCore.INT_STATUS[i * 8 + 0] & 1) << 7)
+                        | ((pCpu->CpuCore.INT_STATUS[i * 8 + 1] & 1) << 6)
+                        | ((pCpu->CpuCore.INT_STATUS[i * 8 + 2] & 1) << 5)
+                        | ((pCpu->CpuCore.INT_STATUS[i * 8 + 3] & 1) << 4)
+                        | ((pCpu->CpuCore.INT_STATUS[i * 8 + 4] & 1) << 3)
+                        | ((pCpu->CpuCore.INT_STATUS[i * 8 + 5] & 1) << 2)
+                        | ((pCpu->CpuCore.INT_STATUS[i * 8 + 6] & 1) << 1)
+                        | ((pCpu->CpuCore.INT_STATUS[i * 8 + 7] & 1) << 0);
+        }
+        break;
+    case INTERNAL_REG_INT_MASK:
+        for (i = 0; i< 4;i++)
+        {
+            pDstInCh[i] = ((pCpu->CpuCore.INT_MASK[i * 8 + 0] & 1) << 7)
+                        | ((pCpu->CpuCore.INT_MASK[i * 8 + 1] & 1) << 6)
+                        | ((pCpu->CpuCore.INT_MASK[i * 8 + 2] & 1) << 5)
+                        | ((pCpu->CpuCore.INT_MASK[i * 8 + 3] & 1) << 4)
+                        | ((pCpu->CpuCore.INT_MASK[i * 8 + 4] & 1) << 3)
+                        | ((pCpu->CpuCore.INT_MASK[i * 8 + 5] & 1) << 2)
+                        | ((pCpu->CpuCore.INT_MASK[i * 8 + 6] & 1) << 1)
+                        | ((pCpu->CpuCore.INT_MASK[i * 8 + 7] & 1) << 0);
+        }
+        break;
+    case INTERNAL_REG_INT_PRIORITY:
+        for (i = 0; i< 4;i++)
+        {
+            pDstInCh[i] = pCpu->CpuCore.INT_priority[(Ctrl & 7) * 4 + i];
+        }
+        break;
+    case INTERNAL_REG_ACTIVE_INT_RETURN_PC:
+        cpu_move_from_4byte_to_4byte(pCpu->CpuCore.ActiveIntReturnPC[Ctrl], pDstInCh);
+        break;
+    case INTERNAL_REG_ACTIVE_INT_PRIORITY:
+        cpu_write_int_to_4char((unsigned int)pCpu->CpuCore.ActiveIntPriority[Ctrl], pDstInCh);
+        break;
+    case INTERNAL_REG_RETI: 
+        cpu_move_from_4byte_to_4byte(pCpu->CpuCore.ActiveIntReturnPC[Ctrl], pDstInCh);
+        pCpu->CpuCore.ActiveIntPos--;
+        break;
+         
+    }
+}
+
+static void Format2_MOV_INNER_EX_stage_write_to(CPU *pCpu)
+{
+    unsigned int Type, i;
+    unsigned int B,Cx,D,E;
+    unsigned char *pDstInCh = (unsigned char *)pCpu->dst;
+    unsigned int Ctrl = cpu_get_int_from_4char(pCpu->Src1);
+    B = pCpu->InstFlag.reg.B;
+    Cx = pCpu->InstFlag.reg.C;
+    D = pCpu->InstFlag.reg.D;
+    E = pCpu->InstFlag.reg.E;
+    Type = B*8+Cx*4+D*2+E;
+
+    switch (Type)
+    {
+    case INTERNAL_REG_SR:
+        cpu_move_from_4byte_to_4byte(pDstInCh, pCpu->CpuCore.SRCh);
+        break;
+    case INTERNAL_REG_INT_STATUS:
+        for (i = 0; i< 4;i++)
+        {
+            pCpu->CpuCore.INT_STATUS[i * 8 + 0] = (pDstInCh[i] >> 7) & 1;
+            pCpu->CpuCore.INT_STATUS[i * 8 + 1] = (pDstInCh[i] >> 6) & 1;
+            pCpu->CpuCore.INT_STATUS[i * 8 + 2] = (pDstInCh[i] >> 5) & 1;
+            pCpu->CpuCore.INT_STATUS[i * 8 + 3] = (pDstInCh[i] >> 4) & 1;
+            pCpu->CpuCore.INT_STATUS[i * 8 + 4] = (pDstInCh[i] >> 3) & 1;
+            pCpu->CpuCore.INT_STATUS[i * 8 + 5] = (pDstInCh[i] >> 2) & 1;
+            pCpu->CpuCore.INT_STATUS[i * 8 + 6] = (pDstInCh[i] >> 1) & 1;
+            pCpu->CpuCore.INT_STATUS[i * 8 + 7] = (pDstInCh[i] >> 0) & 1;
+        }
+        break;
+    case INTERNAL_REG_INT_MASK:
+        for (i = 0; i< 4;i++)
+        {
+            pCpu->CpuCore.INT_MASK[i * 8 + 0] = (pDstInCh[i] >> 7) & 1;
+            pCpu->CpuCore.INT_MASK[i * 8 + 1] = (pDstInCh[i] >> 6) & 1;
+            pCpu->CpuCore.INT_MASK[i * 8 + 2] = (pDstInCh[i] >> 5) & 1;
+            pCpu->CpuCore.INT_MASK[i * 8 + 3] = (pDstInCh[i] >> 4) & 1;
+            pCpu->CpuCore.INT_MASK[i * 8 + 4] = (pDstInCh[i] >> 3) & 1;
+            pCpu->CpuCore.INT_MASK[i * 8 + 5] = (pDstInCh[i] >> 2) & 1;
+            pCpu->CpuCore.INT_MASK[i * 8 + 6] = (pDstInCh[i] >> 1) & 1;
+            pCpu->CpuCore.INT_MASK[i * 8 + 7] = (pDstInCh[i] >> 0) & 1;
+        }
+        break;
+    case INTERNAL_REG_INT_PRIORITY:
+        for (i = 0; i< 4;i++)
+        {
+            pCpu->CpuCore.INT_priority[(Ctrl & 7) * 4 + i] = pDstInCh[i];
+        }
+        break;
+    case  INTERNAL_REG_ACTIVE_INT_RETURN_PC:
+        cpu_move_from_4byte_to_4byte(pDstInCh, pCpu->CpuCore.ActiveIntReturnPC[Ctrl]);
+        break;
+    case INTERNAL_REG_ACTIVE_INT_PRIORITY:
+        pCpu->CpuCore.ActiveIntPriority[Ctrl] = (unsigned char)cpu_get_int_from_4char(pDstInCh);
+    case INTERNAL_REG_RETI: 
+        break;
+    }
+}
+unsigned int Format2_MOV_INNER_EX_stage	    (void)
+{ 
+    CPU *pCpu= get_cpu();
+
+    if (pCpu->InstFlag.reg.A)  //read from CPU internal registers
+    {
+        Format2_MOV_INNER_EX_stage_read_from(pCpu);
+    }
+    else
+    {
+        Format2_MOV_INNER_EX_stage_write_to(pCpu);
+    }
+    //update stage
+    pCpu->stage = CPU_STAGE_IF;
+    return 0;
+}
 unsigned int Format2_MOV_INNER_MEM_stage	(void){ return 0;}
 unsigned int Format2_MOV_INNER_WB_stage     (void){ return 0;}
 
@@ -565,6 +885,7 @@ unsigned int Format3_AJMP_EX_stage(void)
     unsigned int Z,N,C,V;
     unsigned int A,B,Cx,D,E;
     CPU *pCpu= get_cpu();
+    unsigned int u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
 
     A = pCpu->InstFlag.reg.A;
     B = pCpu->InstFlag.reg.B;
@@ -582,9 +903,9 @@ unsigned int Format3_AJMP_EX_stage(void)
         // when need jump
         if (A)
         {
-            pCpu->CpuCore.R[30] = pCpu->CpuCore.R[31];
+            cpu_move_from_4byte_to_4byte(pCpu->CpuCore.R[31], pCpu->CpuCore.R[30]);
         }
-        pCpu->CpuCore.R[31] = (pCpu->Src1 << 2) ; //address is in 4 bytes,shall left by 4
+        cpu_write_int_to_4char((u32Src1 << 2), pCpu->CpuCore.R[31]); //address is in 4 bytes,shall left by 4
     }
 
     //update stage
@@ -598,11 +919,12 @@ unsigned int Format3_AJMP_WB_stage          (void){ return 0;}
 unsigned int Format3_RJMP_EX_stage	        (void)
 {
     CPU *pCpu= get_cpu();
-    int i32Value = (int)(pCpu->Src1);
+    int i32Value = (int)cpu_get_int_from_4char(pCpu->Src1);
+    int i32Pc = (int)cpu_get_int_from_4char(pCpu->CpuCore.R[31]);
     i32Value = (i32Value << 8) >> 8;
     //RJMP shall jump to current location + i32Value, while R[31] point to next instruction location, 
     // so "- 1" is needed
-    pCpu->Src1 = i32Value + (pCpu->CpuCore.R[31] >> 2) - 1; 
+    cpu_write_int_to_4char(i32Value + (i32Pc >> 2) - 1, pCpu->Src1);
     return Format3_AJMP_EX_stage();
 }
 unsigned int Format3_RJMP_MEM_stage	        (void){ return 0;}
@@ -612,9 +934,11 @@ unsigned int Format3_RJMP_WB_stage          (void){ return 0;}
 unsigned int Format4_AJMP_EX_stage	        (void)
 {
     CPU *pCpu= get_cpu();
-    int i32Value = (int)(pCpu->Src1);
+    int i32Value = (int)cpu_get_int_from_4char(pCpu->Src1);
+    int i32Dst = (int)cpu_get_int_from_4char(pCpu->dst);
     i32Value = (i32Value << 16) >> 14;
-    pCpu->Src1 = (i32Value + *pCpu->dst) >> 2;
+     
+    cpu_write_int_to_4char((i32Value + i32Dst) >> 2, pCpu->Src1);
 
     return Format3_AJMP_EX_stage();
 }
@@ -624,11 +948,15 @@ unsigned int Format4_AJMP_WB_stage          (void){ return 0;}
 unsigned int Format4_RJMP_EX_stage	        (void)
 {
     CPU *pCpu= get_cpu();
-    int i32Value = (int)(pCpu->Src1);
+    int i32Value = (int)cpu_get_int_from_4char(pCpu->Src1);
+    int i32Pc = (int)cpu_get_int_from_4char(pCpu->CpuCore.R[31]);
+    int i32Dst = (int)cpu_get_int_from_4char(pCpu->dst);
+
     i32Value = (i32Value << 16) >> 14;
     //RJMP shall jump to current location + i32Value, while R[31] point to next instruction location, 
     // so "- 1" is needed
-    pCpu->Src1 = (unsigned int)((i32Value + *pCpu->dst + pCpu->CpuCore.R[31] - 1) >> 2);
+     
+    cpu_write_int_to_4char((unsigned int)((i32Value + i32Dst + i32Pc - 1) >> 2), pCpu->Src1);
     return Format3_AJMP_EX_stage();
 }
 unsigned int Format4_RJMP_MEM_stage	        (void){ return 0;}
@@ -638,11 +966,11 @@ unsigned int Format4_RJMP_WB_stage          (void){ return 0;}
 unsigned int Format4_MOV_EX_stage	        (void)
 {
     CPU *pCpu= get_cpu();
-    int i32Value = (int)(pCpu->Src1);
+    int i32Value = (int)cpu_get_int_from_4char(pCpu->Src1);
     if (pCpu->InstFlag.reg.A) //signed
     {
         i32Value = (i32Value << 16) >> 16;
-        pCpu->Src1 = (unsigned int)i32Value;
+        cpu_write_int_to_4char((unsigned int)i32Value, pCpu->Src1);
     }
     return Format1_MOV_EX_stage();
 }
@@ -652,14 +980,14 @@ unsigned int Format4_MOV_WB_stage           (void){ return 0;}
 unsigned int Format4_CMP_EX_stage	        (void)
 {
     CPU *pCpu= get_cpu();
-    int i32Value = (int)(pCpu->Src1);
+    int i32Value = (int)cpu_get_int_from_4char(pCpu->Src1);
     if (pCpu->InstFlag.reg.A) //signed
     {
         i32Value = (i32Value << 16) >> 16;
-        pCpu->Src1 = (unsigned int)i32Value;
+        cpu_write_int_to_4char((unsigned int)i32Value, pCpu->Src1);
     }
-    pCpu->Src2 = pCpu->Src1;
-    pCpu->Src1 = *pCpu->dst;
+    cpu_move_from_4byte_to_4byte(pCpu->Src1, pCpu->Src2);
+    cpu_move_from_4byte_to_4byte(pCpu->dst, pCpu->Src1);
     return Format1_CMP_EX_stage();
 }
 unsigned int Format4_CMP_MEM_stage	        (void){ return 0;}
@@ -704,16 +1032,16 @@ unsigned int Format1_ID_stage(void)
     pCpu->InstFlag.reg.E = GET_INST_TYPE1_2_4_FLAG_E(pCpu->InstCh);
 
     DstReg  = GET_INST_TYPE1_RD(pCpu->InstCh);
-    pCpu->dst =    &pCpu->CpuCore.R[DstReg];
+    pCpu->dst =    pCpu->CpuCore.R[DstReg];
 
     SrcReg  =   GET_INST_TYPE1_RB(pCpu->InstCh);
-    pCpu->Src1 =   pCpu->CpuCore.R[SrcReg];
-
-    pCpu->Src1Reg = &pCpu->CpuCore.R[SrcReg];
+    cpu_move_from_4byte_to_4byte(pCpu->CpuCore.R[SrcReg], pCpu->Src1);
+    
+    pCpu->Src1Reg = pCpu->CpuCore.R[SrcReg];
 
     SrcReg  =   GET_INST_TYPE1_RA(pCpu->InstCh);
-    pCpu->Src2 =   pCpu->CpuCore.R[SrcReg];
-
+    cpu_move_from_4byte_to_4byte(pCpu->CpuCore.R[SrcReg], pCpu->Src2);
+    
     //move to next stage
     pCpu->stage = CPU_STAGE_EX;
     return 0;
@@ -730,18 +1058,17 @@ unsigned int Format2_ID_stage(void)
     pCpu->InstFlag.reg.D = GET_INST_TYPE1_2_4_FLAG_D(pCpu->InstCh);
     pCpu->InstFlag.reg.E = GET_INST_TYPE1_2_4_FLAG_E(pCpu->InstCh);
 
-    DstReg  = GET_INST_TYPE2_RD(pCpu->InstCh);
-    pCpu->dst =    &pCpu->CpuCore.R[DstReg];
+    DstReg = GET_INST_TYPE2_RD(pCpu->InstCh);
+    pCpu->dst = pCpu->CpuCore.R[DstReg];
 
-    SrcReg  =   GET_INST_TYPE2_RB(pCpu->InstCh);
-    pCpu->Src1 =   pCpu->CpuCore.R[SrcReg];
+    SrcReg = GET_INST_TYPE2_RB(pCpu->InstCh);
+    cpu_move_from_4byte_to_4byte(pCpu->CpuCore.R[SrcReg], pCpu->Src1);
     pCpu->Src1Reg = 0;
-    pCpu->Src2  =   GET_INST_TYPE2_IMM(pCpu->InstCh);
-
+    cpu_write_int_to_4char((unsigned int)GET_INST_TYPE2_IMM(pCpu->InstCh), pCpu->Src2);
+    
     //move to next stage
     pCpu->stage = CPU_STAGE_EX;
     return 0;
-
 }
 
 unsigned int Format3_ID_stage(void)
@@ -754,7 +1081,7 @@ unsigned int Format3_ID_stage(void)
     pCpu->InstFlag.reg.D = GET_INST_TYPE3_FLAG_D(pCpu->InstCh);
     pCpu->InstFlag.reg.E = GET_INST_TYPE3_FLAG_E(pCpu->InstCh);
 
-    pCpu->Src1  =   GET_INST_TYPE3_IMM(pCpu->InstCh);
+    cpu_write_int_to_4char((unsigned int)GET_INST_TYPE3_IMM(pCpu->InstCh), pCpu->Src1);
     pCpu->Src1Reg = 0;
     //move to next stage
     pCpu->stage = CPU_STAGE_EX;
@@ -773,9 +1100,9 @@ unsigned int Format4_ID_stage(void)
     pCpu->InstFlag.reg.E = GET_INST_TYPE1_2_4_FLAG_E(pCpu->InstCh);
 
     DstReg  = GET_INST_TYPE4_RD(pCpu->InstCh);
-    pCpu->dst =    &pCpu->CpuCore.R[DstReg];
+    pCpu->dst =    pCpu->CpuCore.R[DstReg];
 
-    pCpu->Src1  =   GET_INST_TYPE4_IMM(pCpu->InstCh);
+    cpu_write_int_to_4char((unsigned int)GET_INST_TYPE4_IMM(pCpu->InstCh), pCpu->Src1);
     pCpu->Src1Reg = 0;
     //move to next stage
     pCpu->stage = CPU_STAGE_EX;

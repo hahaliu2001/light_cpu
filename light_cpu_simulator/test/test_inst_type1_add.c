@@ -21,7 +21,7 @@ SET_TEST_DOWN(TESTNAME)
 
 SET_TEST(TESTNAME, test_type1_add_with_small_input)
 {
-	int InstSize, i,Value;
+	int InstSize, i,Value, Error = 0;
 	int RA, RB, RD;
 	int EXPECTED_N;
 	int EXPECTED_Z;
@@ -52,12 +52,14 @@ SET_TEST(TESTNAME, test_type1_add_with_small_input)
 		SET_CPU_REG(RA, Value);
 		SET_CPU_REG(RB, (Value * 2));
 
-		while (!run_cpu())
+        Error = 0;
+		while (!Error)
 		{
+            Error = run_cpu();
 		}
 
-		//expected
-		TEST_ASSERT_EQUAL(4, (UNITY_INT)GET_CPU_PC_REG());
+        //expected
+        TEST_ASSERT_EQUAL(4, (UNITY_INT)GET_CPU_PC_REG());
 		TEST_ASSERT_EQUAL(0, (UNITY_INT)GET_CPU_LR_REG());
 		TEST_ASSERT_EQUAL(STACK_MEM_SIZE, (UNITY_INT)GET_CPU_SR_REG());
 
@@ -75,7 +77,7 @@ SET_TEST(TESTNAME, test_type1_add_with_small_input)
 
 SET_TEST(TESTNAME, should_set_Z_flag_when_result_equal_to_zero)
 {
-	int InstSize, i,Value;
+	int InstSize, i,Value, Error;
 	int RA, RB, RD;
 	int EXPECTED_N;
 	//int EXPECTED_Z;
@@ -106,11 +108,14 @@ SET_TEST(TESTNAME, should_set_Z_flag_when_result_equal_to_zero)
 		SET_CPU_REG(RA, Value);
 		SET_CPU_REG(RB, -Value);
 
-		while (!run_cpu())
+		Error = 0;
+		while (!Error)
 		{
+            Error = run_cpu();
 		}
 
 		//expected
+        
 		TEST_ASSERT_EQUAL(4, (UNITY_INT)GET_CPU_PC_REG());
 		TEST_ASSERT_EQUAL(0, (UNITY_INT)GET_CPU_LR_REG());
 		TEST_ASSERT_EQUAL(STACK_MEM_SIZE, (UNITY_INT)GET_CPU_SR_REG());

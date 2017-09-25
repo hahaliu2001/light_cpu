@@ -29,7 +29,7 @@ SET_TEST_DOWN(TESTNAME)
 
 SET_TEST(TESTNAME, test_type1_sub_with_small_input)
 {
-	int InstSize, i,Value;
+	int InstSize, i,Value, Error;
 	int RA, RB, RD;
 		
 	//given
@@ -52,12 +52,14 @@ SET_TEST(TESTNAME, test_type1_sub_with_small_input)
 		SET_CPU_REG(RA, Value);
 		SET_CPU_REG(RB, (Value * 2));
 
-		while (!run_cpu())
+		Error = 0;
+		while (!Error)
 		{
+            Error = run_cpu();
 		}
 
 		//expected
-		TEST_ASSERT_EQUAL(4, (UNITY_INT)GET_CPU_PC_REG());
+        TEST_ASSERT_EQUAL(4, (UNITY_INT)GET_CPU_PC_REG());
 		TEST_ASSERT_EQUAL(0, (UNITY_INT)GET_CPU_LR_REG());
 		TEST_ASSERT_EQUAL(STACK_MEM_SIZE, (UNITY_INT)GET_CPU_SR_REG());
         TEST_ASSERT_EQUAL(1			, GET_CPU_SR_FLAG_C());

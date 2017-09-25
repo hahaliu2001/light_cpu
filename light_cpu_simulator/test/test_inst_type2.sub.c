@@ -65,7 +65,7 @@ SET_TEST(TESTNAME, test_type2_unsigned_sub)
 
 SET_TEST(TESTNAME, test_type2_unsigned_subc)
 {
-	int InstSize;
+	int InstSize, Error;
     int RegOff = 10;
 	int RB, RD;
     unsigned int IMM1, IMM2;
@@ -93,8 +93,10 @@ SET_TEST(TESTNAME, test_type2_unsigned_subc)
     SET_CPU_REG((RB + RegOff), Value2);
 	SET_TYPE2_UNSIGNED_SUBC(InstMem[1], (RD + RegOff), (RB + RegOff), IMM2);
 
-	while (!run_cpu())
+	Error = 0;
+	while (!Error)
 	{
+        Error = run_cpu();
 	}
 
 	//expected

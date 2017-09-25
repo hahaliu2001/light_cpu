@@ -8,6 +8,19 @@
 #ifndef CPU_INSTRUCTION_H_
 #define CPU_INSTRUCTION_H_
 
+#define CPU_BIG_ENDIAN      1
+#define CPU_LITTLE_ENDIAN   0
+/* CPU could support big endian or little indian, here define*/
+/*difference between big endian and little endian 
+  assume data 0x12345678 store in address 0, 1,2,3
+  address        0   1   2   3
+  big endian    12  34  56  78
+  little endian 78  56  34  12*/
+//#ifndef CPU_ENDIAN
+#define CPU_ENDIAN CPU_BIG_ENDIAN
+//#endif
+
+
 /* MACROs used to parse instruction, refer to documents in ./doc folder*/
 #define GET_INST_FORMAT_TYPE(ch)       ((ch[0] >> 6) & 3)
 
@@ -112,6 +125,20 @@ unsigned int InitInstTable(S_INSTRCTION_CONTEXT *Format1InstMenu,
                            S_INSTRCTION_CONTEXT *Format3InstMenu,
                            S_INSTRCTION_CONTEXT *Format4InstMenu);
 
-
+/* cpu internal Register Index for mov_inner instruction*/
+//     CPU internal Reg                  BCDE
+#define INTERNAL_REG_SR                   0b0000      //SR
+#define INTERNAL_REG_INT_INPUT            0b0001      //32 bits input int pins
+#define INTERNAL_REG_INT_STATUS           0b0010      //32 bits int status
+#define INTERNAL_REG_INT_MASK             0b0011      //32 bits int mask
+#define INTERNAL_REG_INT_PRIORITY         0b0100      //int priority, each int occupy 8 bits
+#define INTERNAL_REG_ACTIVE_INT_RETURN_PC 0b0101      //return PC address for active registere
+#define INTERNAL_REG_ACTIVE_INT_PRIORITY  0b0110      //active register priority
+#define INTERNAL_REG_RETI                 0b1101      //when it is used, return ACTIVE_INT_RETURN_PC and update ActiveIntPos
+                        
+unsigned int cpu_get_int_from_4char(unsigned char *Src);
+void cpu_write_int_to_4char(unsigned int u32Src, unsigned char *Dst);
+void cpu_move_from_4byte_to_4byte(unsigned char *pSrc, unsigned char *pDst);
+void cpu_add_int_to_4byte(unsigned char *pSrc1, unsigned int u32Src2, unsigned char *pDst);
 
 #endif /* CPU_INSTRUCTION_H_ */
