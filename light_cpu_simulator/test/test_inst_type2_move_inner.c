@@ -216,7 +216,73 @@ SET_TEST(TESTNAME, test_type2_move_inner_write_to_INT_PRIORITY)
     }
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_RETURN_PC)
+SET_TEST(TESTNAME, test_type2_move_inner_write_IMM_to_INT_PRIORITY)
+{
+	int InstSize, Error;
+    int i;
+    int m = 0;
+	int RB1, RB2, RD; //, Type;
+    unsigned int Value1, Value2;
+    unsigned int ExpectedValue;
+    
+	//given
+	InstSize = 9;
+    reset_cpu((unsigned char *)InstMem, InstSize * 4,
+			(unsigned char *)DataMem, DATA_MEM_SIZE * 4,
+			(unsigned char *)StackMem, STACK_MEM_SIZE * 4);
+
+	//when 
+    RB1 = 1; RB2 = 2;
+    RD = 23;
+	Value1 = 0x12345678;
+
+    // set register
+    SET_CPU_REG(RB1, Value1);
+    SET_CPU_REG((RB2 + 0), 0);
+    SET_CPU_REG((RB2 + 1), 1);
+    SET_CPU_REG((RB2 + 2), 2);
+    SET_CPU_REG((RB2 + 3), 3);
+    SET_CPU_REG((RB2 + 4), 4);
+    SET_CPU_REG((RB2 + 5), 5);
+    SET_CPU_REG((RB2 + 6), 6);
+    SET_CPU_REG((RB2 + 7), 7);
+
+    
+    //set instruction
+    //SET_TYPE4_UNSIGNED_MOV(InstMem[m++], RD, );
+    SET_TYPE1_MOVE(InstMem[m], RD, RB1);                 m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 0);    m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 1);    m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 2);    m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 3);    m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 4);    m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 5);    m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 6);    m++;
+    SET_TYPE2_MOVE_INNER_WRITE_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, 7);    m++;
+    
+	Error = 0;
+	while (!Error)
+	{
+        Error = run_cpu();
+	}
+
+	//expected
+    Value2 = GET_CPU_REG(RB1);
+    for (i = 0; i< 4; i++)
+    {
+        ExpectedValue = ((Value2 >> (24 - i * 8)) & 0xFF);
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 0)); 
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 1)); 
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 2)); 
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 3)); 
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 4)); 
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 5)); 
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 6)); 
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_INT_PRIORITY(i + 4 * 7)); 
+    }
+}
+
+SET_TEST(TESTNAME, test_type2_move_inner_write_to_INT_RETURN_PC)
 {
 	int InstSize, Error;
     int i;
@@ -245,7 +311,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_RETURN_PC)
     for (i = 0; i< CPU_MAX_INT_NUM; i++)
     {
         SET_TYPE4_SIGNED_MOV(InstMem[m], RB2, i);    m++;
-        SET_TYPE2_MOVE_INNER_WRITE(InstMem[m], INTERNAL_REG_ACTIVE_INT_RETURN_PC, RD, RB2);    m++; 
+        SET_TYPE2_MOVE_INNER_WRITE(InstMem[m], INTERNAL_REG_INT_RETURN_PC, RD, RB2);    m++; 
     }
     
 	Error = 0;
@@ -262,7 +328,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_RETURN_PC)
     }
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_PRIORITY)
+SET_TEST(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_ID)
 {
 	int InstSize, Error;
     int i;
@@ -291,7 +357,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_PRIORITY)
     for (i = 0; i< CPU_MAX_INT_NUM; i++)
     {
         SET_TYPE4_SIGNED_MOV(InstMem[m], RB2, i);    m++;
-        SET_TYPE2_MOVE_INNER_WRITE(InstMem[m], INTERNAL_REG_ACTIVE_INT_PRIORITY, RD, RB2);    m++; 
+        SET_TYPE2_MOVE_INNER_WRITE(InstMem[m], INTERNAL_REG_ACTIVE_INT_ID, RD, RB2);    m++; 
     }
     
 	Error = 0;
@@ -308,7 +374,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_PRIORITY)
     }
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_SR)
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_SR)
 {
 	int InstSize, Error;
     //int i;
@@ -345,7 +411,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_SR)
 	TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_REG(RD));
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_INPUT)
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_INT_INPUT)
 {
 	int InstSize, Error;
     int i;
@@ -381,7 +447,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_INPUT)
     TEST_ASSERT_EQUAL(0x55555555, GET_CPU_REG(RD));
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_STATUS)
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_INT_STATUS)
 {
 	int InstSize, Error;
     int i;
@@ -417,7 +483,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_STATUS)
     TEST_ASSERT_EQUAL(0x55555555, GET_CPU_REG(RD));
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_MASK)
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_INT_MASK)
 {
 	int InstSize, Error;
     int i;
@@ -453,7 +519,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_MASK)
     TEST_ASSERT_EQUAL(0x55555555, GET_CPU_REG(RD));
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_PRIORITY)
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_INT_PRIORITY)
 {
 	int InstSize, Error;
     int i;
@@ -501,7 +567,55 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_INT_PRIORITY)
     
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_RETURN_PC)
+SET_TEST(TESTNAME, test_type2_move_inner_IMM_read_from_INT_PRIORITY)
+{
+	int InstSize, Error;
+    int i;
+    int m = 0;
+    int RA, RB, RD; //, Type;
+    unsigned int Value, ExpectedValue;
+    
+    for (i = 0; i< CPU_MAX_INT_NUM/4; i++)
+    {
+        //given
+        InstSize = 2;
+        reset_cpu((unsigned char *)InstMem, InstSize * 4,
+    			(unsigned char *)DataMem, DATA_MEM_SIZE * 4,
+    			(unsigned char *)StackMem, STACK_MEM_SIZE * 4);
+
+    	//when 
+        RB = 1; 
+        RD = 23;
+        RA = 28;
+        Value = 0x12345678;
+    	
+        // set register
+        SET_CPU_REG(RA, Value);
+        SET_CPU_INT_PRIORITY(i * 4 + 0,  ((Value >> 24) & 0xFF));
+        SET_CPU_INT_PRIORITY(i * 4 + 1,  ((Value >> 16) & 0xFF));
+        SET_CPU_INT_PRIORITY(i * 4 + 2,  ((Value >> 8 ) & 0xFF));
+        SET_CPU_INT_PRIORITY(i * 4 + 3,  ((Value >> 0 ) & 0xFF));
+        
+        //set instruction
+        m = 0;
+        SET_TYPE4_SIGNED_MOV(InstMem[m], RB, i);    m++;
+        SET_TYPE2_MOVE_INNER_READ_IMM(InstMem[m], INTERNAL_REG_INT_PRIORITY, RD, i);    m++; 
+        
+    	Error = 0;
+    	while (!Error)
+    	{
+            Error = run_cpu();
+    	}
+
+    	//expected
+        ExpectedValue = GET_CPU_REG(RA);
+        TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_REG(RD));
+
+    }
+    
+}
+
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_ACTIVE_INT_RETURN_PC)
 {
 	int InstSize, Error;
     int i;
@@ -512,7 +626,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_RETURN_PC)
     for (i = 0; i< CPU_MAX_INT_NUM; i++)
     {
         //given
-        InstSize = 2;
+        InstSize = 3;
         reset_cpu((unsigned char *)InstMem, InstSize * 4,
     			(unsigned char *)DataMem, DATA_MEM_SIZE * 4,
     			(unsigned char *)StackMem, STACK_MEM_SIZE * 4);
@@ -531,7 +645,8 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_RETURN_PC)
         //set instruction
         m = 0;
         SET_TYPE4_SIGNED_MOV(InstMem[m], RB, i);    m++;
-        SET_TYPE2_MOVE_INNER_READ(InstMem[m], INTERNAL_REG_ACTIVE_INT_RETURN_PC, RD, RB);    m++; 
+        SET_TYPE2_MOVE_INNER_READ(InstMem[m], INTERNAL_REG_INT_RETURN_PC, RD, RB);    m++; 
+        SET_TYPE2_MOVE_INNER_READ(InstMem[m], INTERNAL_REG_ACTIVE_INT_POS, RB, 0);    m++; 
         
     	Error = 0;
     	while (!Error)
@@ -542,13 +657,14 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_RETURN_PC)
     	//expected
         ExpectedValue = GET_CPU_REG(RA);
         TEST_ASSERT_EQUAL(ExpectedValue, GET_CPU_REG(RD));
+        TEST_ASSERT_EQUAL(1, GET_CPU_REG(RB));
         TEST_ASSERT_EQUAL(1, GET_CPU_ACTIVE_INT_POS());
 
     }
     
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_PRIORITY)
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_ACTIVE_INT_ID)
 {
 	int InstSize, Error;
     int i;
@@ -577,7 +693,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_PRIORITY)
         //set instruction
         m = 0;
         SET_TYPE4_SIGNED_MOV(InstMem[m], RB, i);    m++;
-        SET_TYPE2_MOVE_INNER_READ(InstMem[m], INTERNAL_REG_ACTIVE_INT_PRIORITY, RD, RB);    m++; 
+        SET_TYPE2_MOVE_INNER_READ(InstMem[m], INTERNAL_REG_ACTIVE_INT_ID, RD, RB);    m++; 
         
     	Error = 0;
     	while (!Error)
@@ -593,7 +709,7 @@ SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_PRIORITY)
     
 }
 
-SET_TEST(TESTNAME, test_type2_move_inner_read_from_to_RETI)
+SET_TEST(TESTNAME, test_type2_move_inner_read_from_RETI)
 {
 	int InstSize, Error;
     int i;
@@ -647,14 +763,16 @@ SET_TEST_GROUP_RUNNER(TESTNAME)
     SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_to_INT_STATUS);
     SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_to_INT_MASK);
     SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_to_INT_PRIORITY);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_RETURN_PC);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_PRIORITY);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_SR);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_INT_INPUT);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_INT_STATUS);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_INT_MASK);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_INT_PRIORITY);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_RETURN_PC);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_ACTIVE_INT_PRIORITY);
-    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_to_RETI);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_IMM_to_INT_PRIORITY);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_to_INT_RETURN_PC);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_write_to_ACTIVE_INT_ID);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_SR);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_INT_INPUT);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_INT_STATUS);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_INT_MASK);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_INT_PRIORITY);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_IMM_read_from_INT_PRIORITY);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_ACTIVE_INT_RETURN_PC);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_ACTIVE_INT_ID);
+    SET_RUN_TEST_CASE(TESTNAME, test_type2_move_inner_read_from_RETI);
 }

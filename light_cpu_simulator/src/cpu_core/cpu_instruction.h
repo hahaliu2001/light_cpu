@@ -132,8 +132,9 @@ unsigned int InitInstTable(S_INSTRCTION_CONTEXT *Format1InstMenu,
 #define INTERNAL_REG_INT_STATUS           0b0010      //32 bits int status
 #define INTERNAL_REG_INT_MASK             0b0011      //32 bits int mask
 #define INTERNAL_REG_INT_PRIORITY         0b0100      //int priority, each int occupy 8 bits
-#define INTERNAL_REG_ACTIVE_INT_RETURN_PC 0b0101      //return PC address for active registere
-#define INTERNAL_REG_ACTIVE_INT_PRIORITY  0b0110      //active register priority
+#define INTERNAL_REG_INT_RETURN_PC        0b0101      //return PC address for active registere
+#define INTERNAL_REG_ACTIVE_INT_ID        0b0110      //active register id
+#define INTERNAL_REG_ACTIVE_INT_POS       0b0111      //active register pos which is also current active INT number                                                      
 #define INTERNAL_REG_RETI                 0b1101      //when it is used, return ACTIVE_INT_RETURN_PC and update ActiveIntPos
                         
 unsigned int cpu_get_int_from_4char(unsigned char *Src);

@@ -13,12 +13,13 @@
 #define CPU_MAX_REG_NUM 32
 #define	CPU_MAX_INT_NUM	32
 
-#define NO_INT_FLAG     0xff
+#define NO_INT_FLAG     0
 
-#define INT_ENTRY_MEM_SIZE  0x16
+#define CPU_ENTRY_RESERVE_SIZE  256 //memory address from 0 - 255 are used to CPU init processing
+#define INT_ENTRY_MEM_SIZE  32
 #define INTERNAL_INT_NUM    8
 #define EXTERNAL_INT_NUM    8
-#define SWI_NUM             16  //number of SWI
+#define SWI_NUM             (CPU_MAX_INT_NUM - INTERNAL_INT_NUM - EXTERNAL_INT_NUM)  //number of SWI
 
 /*there are 5 RISC stage */
 #define CPU_STAGE_IF	0 //instruction fetch stage to read instruction from instruction mem
@@ -56,8 +57,8 @@ typedef struct
 	unsigned char INT_STATUS[CPU_MAX_INT_NUM]; //interrupt status, 1 is int active
 	unsigned char INT_MASK[CPU_MAX_INT_NUM]; //interrupt mask, 1 is enable, 0 is disable
     unsigned char INT_priority[CPU_MAX_INT_NUM]; //from 0 - 31. 0 is highest
-    unsigned char ActiveIntReturnPC[CPU_MAX_INT_NUM][4]; //used to store returning PC address when exit from INT
-    unsigned char ActiveIntPriority[CPU_MAX_INT_NUM];  //0xFF means not under int state
+    unsigned char INT_ReturnPC[CPU_MAX_INT_NUM][4]; //used to store returning PC address when exit from INT
+    unsigned char ActiveIntId[CPU_MAX_INT_NUM];  //0xFF means not under int state
     unsigned int ActiveIntPos;
 }CPU_CORE ;
 

@@ -278,11 +278,11 @@ static void cpu_int_shift_core(unsigned int u32Src1, unsigned int u32Src2, unsig
     }
     else  //for right shift
     {
-        if (A) //logic shift
+        if (A) //arithmetical shift
         {
            *pu32Dst = (unsigned int)((int)u32Src1 >> (-i32Shift));
         }
-        else  //arithmetical shift
+        else  // logic shift
         {
             *pu32Dst = (unsigned int)u32Src1 >> (-i32Shift);
         }
@@ -704,7 +704,15 @@ unsigned int Format2_ST_WB_stage            (void){ return 0;}
 unsigned int Format2_SWI_EX_stage	        (void)
 { 
     CPU *pCpu= get_cpu();
-    unsigned int u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    unsigned int u32Src1;
+    if (pCpu->InstFlag.reg.A) //ADDC
+    {
+        u32Src1 = cpu_get_int_from_4char(pCpu->Src2);
+    }
+    else
+    {
+        u32Src1 = cpu_get_int_from_4char(pCpu->Src1);
+    }
 
     pCpu->CpuCore.INT_input[INTERNAL_INT_NUM + EXTERNAL_INT_NUM + (u32Src1 & (SWI_NUM - 1))] = 1;
 
@@ -720,14 +728,23 @@ static void Format2_MOV_INNER_EX_stage_read_from(CPU *pCpu)
     unsigned int Type, i;
     unsigned int B,Cx,D,E;
     unsigned char *pDstInCh = (unsigned char *)pCpu->dst;
-    unsigned int Ctrl = cpu_get_int_from_4char(pCpu->Src1);
+    unsigned int Ctrl; 
     B = pCpu->InstFlag.reg.B;
     Cx = pCpu->InstFlag.reg.C;
     D = pCpu->InstFlag.reg.D;
     E = pCpu->InstFlag.reg.E;
     Type = B*8+Cx*4+D*2+E;
 
-    switch (Type)
+    if (cpu_get_int_from_4char(pCpu->Src2) == 0x7FF)
+    {
+        Ctrl = cpu_get_int_from_4char(pCpu->Src1);
+    }
+    else
+    {
+        Ctrl = cpu_get_int_from_4char(pCpu->Src2);
+    }
+
+    switch (Type) 
     {
     case INTERNAL_REG_SR:
         cpu_move_from_4byte_to_4byte(pCpu->CpuCore.SRCh, pDstInCh);
@@ -777,14 +794,17 @@ static void Format2_MOV_INNER_EX_stage_read_from(CPU *pCpu)
             pDstInCh[i] = pCpu->CpuCore.INT_priority[(Ctrl & 7) * 4 + i];
         }
         break;
-    case INTERNAL_REG_ACTIVE_INT_RETURN_PC:
-        cpu_move_from_4byte_to_4byte(pCpu->CpuCore.ActiveIntReturnPC[Ctrl], pDstInCh);
+    case INTERNAL_REG_INT_RETURN_PC:
+        cpu_move_from_4byte_to_4byte(pCpu->CpuCore.INT_ReturnPC[Ctrl], pDstInCh);
         break;
-    case INTERNAL_REG_ACTIVE_INT_PRIORITY:
-        cpu_write_int_to_4char((unsigned int)pCpu->CpuCore.ActiveIntPriority[Ctrl], pDstInCh);
+    case INTERNAL_REG_ACTIVE_INT_ID:
+        cpu_write_int_to_4char((unsigned int)pCpu->CpuCore.ActiveIntId[Ctrl], pDstInCh);
+        break;
+    case INTERNAL_REG_ACTIVE_INT_POS:
+        cpu_write_int_to_4char((unsigned int)pCpu->CpuCore.ActiveIntPos, pDstInCh);
         break;
     case INTERNAL_REG_RETI: 
-        cpu_move_from_4byte_to_4byte(pCpu->CpuCore.ActiveIntReturnPC[Ctrl], pDstInCh);
+        cpu_move_from_4byte_to_4byte(pCpu->CpuCore.INT_ReturnPC[Ctrl], pDstInCh);
         pCpu->CpuCore.ActiveIntPos--;
         break;
          
@@ -796,12 +816,21 @@ static void Format2_MOV_INNER_EX_stage_write_to(CPU *pCpu)
     unsigned int Type, i;
     unsigned int B,Cx,D,E;
     unsigned char *pDstInCh = (unsigned char *)pCpu->dst;
-    unsigned int Ctrl = cpu_get_int_from_4char(pCpu->Src1);
+    unsigned int Ctrl;
     B = pCpu->InstFlag.reg.B;
     Cx = pCpu->InstFlag.reg.C;
     D = pCpu->InstFlag.reg.D;
     E = pCpu->InstFlag.reg.E;
     Type = B*8+Cx*4+D*2+E;
+
+    if (cpu_get_int_from_4char(pCpu->Src2) == 0x7FF)
+    {
+        Ctrl = cpu_get_int_from_4char(pCpu->Src1);
+    }
+    else
+    {
+        Ctrl = cpu_get_int_from_4char(pCpu->Src2);
+    }
 
     switch (Type)
     {
@@ -840,11 +869,11 @@ static void Format2_MOV_INNER_EX_stage_write_to(CPU *pCpu)
             pCpu->CpuCore.INT_priority[(Ctrl & 7) * 4 + i] = pDstInCh[i];
         }
         break;
-    case  INTERNAL_REG_ACTIVE_INT_RETURN_PC:
-        cpu_move_from_4byte_to_4byte(pDstInCh, pCpu->CpuCore.ActiveIntReturnPC[Ctrl]);
+    case  INTERNAL_REG_INT_RETURN_PC:
+        cpu_move_from_4byte_to_4byte(pDstInCh, pCpu->CpuCore.INT_ReturnPC[Ctrl]);
         break;
-    case INTERNAL_REG_ACTIVE_INT_PRIORITY:
-        pCpu->CpuCore.ActiveIntPriority[Ctrl] = (unsigned char)cpu_get_int_from_4char(pDstInCh);
+    case INTERNAL_REG_ACTIVE_INT_ID:
+        pCpu->CpuCore.ActiveIntId[Ctrl] = (unsigned char)cpu_get_int_from_4char(pDstInCh);
     case INTERNAL_REG_RETI: 
         break;
     }

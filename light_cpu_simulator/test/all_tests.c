@@ -29,6 +29,7 @@ static void RunAllTests(void)
   RUN_TEST_GROUP(inst_type4_cmp);
   RUN_TEST_GROUP(inst_type4_ld);
   RUN_TEST_GROUP(inst_type4_st);
+  RUN_TEST_GROUP(interrupt_test);
 }
 
 int main(int argc, const char * argv[])

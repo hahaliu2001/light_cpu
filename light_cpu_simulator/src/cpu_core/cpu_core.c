@@ -49,12 +49,12 @@ void reset_cpu(unsigned char *InstMemBase, unsigned int InstMemSize,
         Cpu.CpuCore.INT_input[i] = 0;
         Cpu.CpuCore.INT_STATUS[i] = 0;
         Cpu.CpuCore.INT_MASK[i] = 0;
-        Cpu.CpuCore.INT_priority[i] = i; //lowest
-        Cpu.CpuCore.ActiveIntReturnPC[i][0] = 0;
-        Cpu.CpuCore.ActiveIntReturnPC[i][1] = 0;
-        Cpu.CpuCore.ActiveIntReturnPC[i][2] = 0;
-        Cpu.CpuCore.ActiveIntReturnPC[i][3] = 0;
-        Cpu.CpuCore.ActiveIntPriority[i] = NO_INT_FLAG;
+        Cpu.CpuCore.INT_priority[i] = CPU_MAX_INT_NUM - i; //
+        Cpu.CpuCore.INT_ReturnPC[i][0] = 0;
+        Cpu.CpuCore.INT_ReturnPC[i][1] = 0;
+        Cpu.CpuCore.INT_ReturnPC[i][2] = 0;
+        Cpu.CpuCore.INT_ReturnPC[i][3] = 0;
+        Cpu.CpuCore.ActiveIntId[i] = CPU_MAX_INT_NUM;
     }
     Cpu.CpuCore.ActiveIntPos = 0;
     
@@ -103,9 +103,9 @@ unsigned int run_cpu_in_if_stage()
 {
 	unsigned int AddrInByte = cpu_get_int_from_4char(Cpu.CpuCore.R[31]);
     unsigned int i;
-    unsigned char LowestIntPriority = NO_INT_FLAG;
-    unsigned int LowestIntLos = 0;
-
+    unsigned char HighestIntPriority = NO_INT_FLAG;
+    unsigned char HighestIntId = 0;
+    
 	if (AddrInByte & 0x3)
 	{	// PC address is not 4 bytes align
 		return 1;
@@ -120,28 +120,28 @@ unsigned int run_cpu_in_if_stage()
             //clear int input
             Cpu.CpuCore.INT_input[i] = 0;
         }
-        if ((Cpu.CpuCore.INT_STATUS[i] == 1) && (Cpu.CpuCore.INT_priority[i] < LowestIntPriority))
+        if ((Cpu.CpuCore.INT_STATUS[i] == 1) && (Cpu.CpuCore.INT_priority[i] > HighestIntPriority))
         {
-            LowestIntPriority = Cpu.CpuCore.INT_priority[i];
-            LowestIntLos = i;
+            HighestIntPriority = Cpu.CpuCore.INT_priority[i];
+            HighestIntId = i;
         }
     }
 
-    if(GET_SR_FLAG_INT(Cpu.CpuCore.SRCh) && (LowestIntPriority < NO_INT_FLAG)) //if INT processing is enabled and there is int signal
+    if(GET_SR_FLAG_INT(Cpu.CpuCore.SRCh) && (HighestIntPriority > NO_INT_FLAG)) //if INT processing is enabled and there is int signal
     {
         //LowestIntPriority is lower than current active int, go to int processing
-        if (LowestIntPriority < Cpu.CpuCore.ActiveIntPriority[Cpu.CpuCore.ActiveIntPos])
+        if (HighestIntPriority > Cpu.CpuCore.INT_priority[Cpu.CpuCore.ActiveIntId[Cpu.CpuCore.ActiveIntPos]])
         {
             // set avtive int
             Cpu.CpuCore.ActiveIntPos++;
-            Cpu.CpuCore.ActiveIntPriority[Cpu.CpuCore.ActiveIntPos] = LowestIntPriority;
-            cpu_write_int_to_4char(AddrInByte, Cpu.CpuCore.ActiveIntReturnPC[Cpu.CpuCore.ActiveIntPos]);
-
+            Cpu.CpuCore.ActiveIntId[Cpu.CpuCore.ActiveIntPos] = HighestIntId;
+            cpu_write_int_to_4char(AddrInByte, Cpu.CpuCore.INT_ReturnPC[HighestIntId]);
+            
             //clear int status
-            Cpu.CpuCore.INT_STATUS[LowestIntLos] = 0;
+            Cpu.CpuCore.INT_STATUS[HighestIntId] = 0;
 
             //set int entry PC 
-            AddrInByte = LowestIntLos * INT_ENTRY_MEM_SIZE;
+            AddrInByte = CPU_ENTRY_RESERVE_SIZE + HighestIntId * INT_ENTRY_MEM_SIZE;
             cpu_write_int_to_4char(AddrInByte, Cpu.CpuCore.R[31]);
             
         }

@@ -35,16 +35,16 @@
 #define SET_CPU_INT_STATUS(pos, val)    (get_cpu()->CpuCore.INT_STATUS[(pos)] = val)
 #define SET_CPU_INT_MASK(pos, val)      (get_cpu()->CpuCore.INT_MASK[(pos)] = val)
 #define SET_CPU_INT_PRIORITY(pos, val)  (get_cpu()->CpuCore.INT_priority[(pos)] = val)
-#define SET_CPU_ACTIVE_INT_RETURN_PC(pos, val) (cpu_write_int_to_4char(val, get_cpu()->CpuCore.ActiveIntReturnPC[(pos)]))
-#define SET_CPU_ACTIVE_INT_PRIORITY(pos, val)  (get_cpu()->CpuCore.ActiveIntPriority[(pos)] = val)
+#define SET_CPU_ACTIVE_INT_RETURN_PC(pos, val) (cpu_write_int_to_4char(val, get_cpu()->CpuCore.INT_ReturnPC[(pos)]))
+#define SET_CPU_ACTIVE_INT_PRIORITY(pos, val)  (get_cpu()->CpuCore.ActiveIntId[(pos)] = val)
 #define SET_CPU_ACTIVE_INT_POS(val)     (get_cpu()->CpuCore.ActiveIntPos = val)
 
 #define GET_CPU_INT_INPUT(pos)          (get_cpu()->CpuCore.INT_input[(pos)])
 #define GET_CPU_INT_STATUS(pos)         (get_cpu()->CpuCore.INT_STATUS[(pos)])
 #define GET_CPU_INT_MASK(pos)           (get_cpu()->CpuCore.INT_MASK[(pos)])
 #define GET_CPU_INT_PRIORITY(pos)       (get_cpu()->CpuCore.INT_priority[(pos)])
-#define GET_CPU_ACTIVE_INT_RETURN_PC(pos) (cpu_get_int_from_4char(get_cpu()->CpuCore.ActiveIntReturnPC[(pos)]))
-#define GET_CPU_ACTIVE_INT_PRIORITY(pos)  (get_cpu()->CpuCore.ActiveIntPriority[(pos)])
+#define GET_CPU_ACTIVE_INT_RETURN_PC(pos) (cpu_get_int_from_4char(get_cpu()->CpuCore.INT_ReturnPC[(pos)]))
+#define GET_CPU_ACTIVE_INT_PRIORITY(pos)  (get_cpu()->CpuCore.ActiveIntId[(pos)])
 #define GET_CPU_ACTIVE_INT_POS()        (get_cpu()->CpuCore.ActiveIntPos)
 
 /*below MACRO is used to generate cpu instructions */
@@ -184,8 +184,8 @@
 #define SET_TYPE2_UNSIGNED_MPY(ch, RD, RB, IMM)			SET_TYPE2_INSTRUCTION(ch, OP_MPY, 0, 0, 0, 0, 0, RD, RB, IMM)
 #define SET_TYPE2_SIGNED_MPY(ch, RD, RB, IMM)			SET_TYPE2_INSTRUCTION(ch, OP_MPY, 1, 0, 0, 0, 0, RD, RB, IMM)
 
-#define SET_TYPE2_ARITH_SHIFT(ch, RD, RB, IMM)			SET_TYPE2_INSTRUCTION(ch, OP_SHIFT, 0, 0, 0, 0, 0, RD, RB, IMM)
-#define SET_TYPE2_LOGIC_SHIFT(ch, RD, RB, IMM)			SET_TYPE2_INSTRUCTION(ch, OP_SHIFT, 1, 0, 0, 0, 0, RD, RB, IMM)
+#define SET_TYPE2_ARITH_SHIFT(ch, RD, RB, IMM)			SET_TYPE2_INSTRUCTION(ch, OP_SHIFT, 1, 0, 0, 0, 0, RD, RB, IMM)
+#define SET_TYPE2_LOGIC_SHIFT(ch, RD, RB, IMM)			SET_TYPE2_INSTRUCTION(ch, OP_SHIFT, 0, 0, 0, 0, 0, RD, RB, IMM)
 
 #define SET_TYPE2_LD_4_BYTE(ch, RD, RB, IMM)		    SET_TYPE2_INSTRUCTION(ch, OP_LD, 1, 0, 0, 0, 0, RD, RB, IMM)
 #define SET_TYPE2_LD_UNSIGNED_1_BYTE(ch, RD, RB, IMM)	SET_TYPE2_INSTRUCTION(ch, OP_LD, 0, 0, 0, 0, 0, RD, RB, IMM)
@@ -198,9 +198,13 @@
 #define SET_TYPE2_ST_4_BYTE(ch, RD, RB, IMM)		    SET_TYPE2_INSTRUCTION(ch, OP_ST, 1, 0, 0, 0, 0, RD, RB, IMM)
 
 #define SET_TYPE2_SWI(ch, RB)		                    SET_TYPE2_INSTRUCTION(ch, OP_SWI, 0, 0, 0, 0, 0, 0, RB, 0)
+#define SET_TYPE2_SWI_IMM(ch, IMM)		                SET_TYPE2_INSTRUCTION(ch, OP_SWI, 1, 0, 0, 0, 0, 0, 0, IMM)
 
-#define SET_TYPE2_MOVE_INNER_WRITE(ch, TYPE, RD, RB)	SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 0, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, RB, 0)
-#define SET_TYPE2_MOVE_INNER_READ(ch, TYPE, RD, RB)	    SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 1, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, RB, 0)
+#define SET_TYPE2_MOVE_INNER_WRITE(ch, TYPE, RD, RB)	SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 0, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, RB, 0x7FF)
+#define SET_TYPE2_MOVE_INNER_READ(ch, TYPE, RD, RB)	    SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 1, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, RB, 0x7FF)
+
+#define SET_TYPE2_MOVE_INNER_WRITE_IMM(ch, TYPE, RD, IMM)	SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 0, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, 0, IMM)
+#define SET_TYPE2_MOVE_INNER_READ_IMM(ch, TYPE, RD, IMM)	SET_TYPE2_INSTRUCTION(ch, OP_MOV_INNER, 1, ((TYPE >> 3) & 1), ((TYPE >> 2) & 1), ((TYPE >> 1) & 1), ((TYPE >> 0) & 1), RD, 0, IMM)
 
 #define SET_TYPE3_AJMP(ch, COND, IMM)	                SET_TYPE3_INSTRUCTION(ch, T3_OP_AJMP, 0, ((COND >> 3) & 1), ((COND >> 2) & 1), ((COND >> 1) & 1), ((COND >> 0) & 1), IMM)
 #define SET_TYPE3_AJMPL(ch, COND, IMM)	                SET_TYPE3_INSTRUCTION(ch, T3_OP_AJMP, 1, ((COND >> 3) & 1), ((COND >> 2) & 1), ((COND >> 1) & 1), ((COND >> 0) & 1), IMM)

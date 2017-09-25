@@ -97,8 +97,9 @@ SET_TEST(TESTNAME, test_logic_right_shift)
 	}
 
 	//expected
-	TEST_ASSERT_EQUAL(((unsigned int)((int)Value1 >> 6)), GET_CPU_REG(RD));
-    TEST_ASSERT_EQUAL(((unsigned int)((int)Value2 >> 7)), GET_CPU_REG((RD + RegOff)));
+    TEST_ASSERT_EQUAL((Value1 >> 6), GET_CPU_REG(RD));
+    TEST_ASSERT_EQUAL((Value2 >> 7), GET_CPU_REG((RD + RegOff)));
+
 }
 
 SET_TEST(TESTNAME, test_arithmetical_right_shift)
@@ -135,8 +136,8 @@ SET_TEST(TESTNAME, test_arithmetical_right_shift)
 	}
 
 	//expected
-	TEST_ASSERT_EQUAL((Value1 >> 6), GET_CPU_REG(RD));
-    TEST_ASSERT_EQUAL((Value2 >> 7), GET_CPU_REG((RD + RegOff)));
+	TEST_ASSERT_EQUAL(((unsigned int)((int)Value1 >> 6)), GET_CPU_REG(RD));
+    TEST_ASSERT_EQUAL(((unsigned int)((int)Value2 >> 7)), GET_CPU_REG((RD + RegOff)));
 }
 
 SET_TEST_GROUP_RUNNER(TESTNAME)
